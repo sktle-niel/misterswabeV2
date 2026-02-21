@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => 'ID is required']);
         exit;
     }
-
+// done
     // Get category name first
     $stmt = $conn->prepare("SELECT name FROM categories WHERE id = ?");
     $stmt->bind_param("s", $id);
