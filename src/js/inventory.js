@@ -21,7 +21,7 @@ function renderProducts(productsToRender) {
           ? "badge-warning"
           : "badge-danger";
 
-    // Format size quantities for display
+    // Format size-color quantities for display
     let sizeQuantitiesDisplay = "N/A";
     if (
       product.size_quantities &&
@@ -33,9 +33,20 @@ function renderProducts(productsToRender) {
           typeof product.size_quantities === "string"
             ? JSON.parse(product.size_quantities)
             : product.size_quantities;
+        
+        // Format as: Size:Color=Qty
         const formattedQuantities = Object.entries(sizeQuantities)
-          .filter(([size, qty]) => qty > 0) // Only show sizes with quantity > 0
-          .map(([size, qty]) => `${size}: ${qty}`)
+          .filter(([key, qty]) => qty > 0)
+          .map(([key, qty]) => {
+            const parts = key.split('_');
+            if (parts.length >= 2) {
+              const size = parts[0];
+              const color = parts.slice(1).join(' ');
+              return `${size}:${color}=${qty}`;
+            } else {
+              return `${key}:${qty}`;
+            }
+          })
           .join(", ");
         sizeQuantitiesDisplay = formattedQuantities || "N/A";
       } catch (e) {
@@ -475,6 +486,10 @@ function confirmDelete() {
 function closeAddProductModal() {
   document.getElementById("addProductModalOverlay").style.display = "none";
   document.getElementById("addProductForm").reset();
+  // Reset size-color configuration
+  if (typeof resetAddProductForm === 'function') {
+    resetAddProductForm();
+  }
 }
 
 function closeAddProductModalOnOverlay(event) {
@@ -494,13 +509,9 @@ function addProduct() {
   const category = document.getElementById("productCategory").value;
   const price = document.getElementById("productPrice").value.trim();
   const sizesInput = document.getElementById("productSizes").value.trim();
-  const colorsInput = document.getElementById("productColors").value.trim();
-  const selectedSizes = sizesInput
-    ? sizesInput
-        .split(",")
-        .map((size) => size.trim())
-        .filter((size) => size)
-    : [];
+  const simpleQuantityInput = document.getElementById("simpleQuantity");
+  const simpleQuantity = simpleQuantityInput ? simpleQuantityInput.value : "0";
+  const noSizeColorRequired = document.getElementById("noSizeColorRequired").checked;
   const imageFiles = document.getElementById("productImages").files;
 
   // Validate file sizes (max 4MB each)
@@ -518,7 +529,14 @@ function addProduct() {
   formData.append("productCategory", category);
   formData.append("productPrice", price);
   formData.append("productSizes", sizesInput);
-  formData.append("productColors", colorsInput);
+  formData.append("simpleQuantity", simpleQuantity);
+  formData.append("noSizeColorRequired", noSizeColorRequired ? "1" : "0");
+
+  // Get size-color configuration
+  const sizeColorConfigInput = document.getElementById("sizeColorConfig");
+  if (sizeColorConfigInput) {
+    formData.append("sizeColorConfig", sizeColorConfigInput.value);
+  }
 
   // Append image files
   for (let i = 0; i < imageFiles.length; i++) {
@@ -553,7 +571,7 @@ function addProduct() {
               : "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90",
           size: sizesInput || "N/A",
           size_quantities: data.size_quantities,
-          color: colorsInput || "N/A",
+          color: data.all_colors ? data.all_colors.join(", ") : "N/A",
         };
 
         products.push(newProduct);
