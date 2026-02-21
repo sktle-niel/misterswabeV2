@@ -499,6 +499,11 @@ function closeAddProductModalOnOverlay(event) {
 }
 
 function addProduct() {
+  // First update hidden inputs to ensure latest data
+  if (typeof updateHiddenInputs === 'function') {
+    updateHiddenInputs();
+  }
+  
   const form = document.getElementById("addProductForm");
   if (!form.checkValidity()) {
     form.reportValidity();
@@ -512,7 +517,12 @@ function addProduct() {
   const simpleQuantityInput = document.getElementById("simpleQuantity");
   const simpleQuantity = simpleQuantityInput ? simpleQuantityInput.value : "0";
   const noSizeColorRequired = document.getElementById("noSizeColorRequired").checked;
-  const imageFiles = document.getElementById("productImages").files;
+const imageFiles = document.getElementById("productImages").files;
+
+  // Debug: Log the sizeColorConfig before submitting
+  const sizeColorConfigInput = document.getElementById("sizeColorConfig");
+  console.log("DEBUG - sizeColorConfig value:", sizeColorConfigInput ? sizeColorConfigInput.value : "not found");
+  console.log("DEBUG - productSizes value:", sizesInput);
 
   // Validate file sizes (max 4MB each)
   for (let file of imageFiles) {
@@ -533,7 +543,6 @@ function addProduct() {
   formData.append("noSizeColorRequired", noSizeColorRequired ? "1" : "0");
 
   // Get size-color configuration
-  const sizeColorConfigInput = document.getElementById("sizeColorConfig");
   if (sizeColorConfigInput) {
     formData.append("sizeColorConfig", sizeColorConfigInput.value);
   }
