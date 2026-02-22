@@ -1,6 +1,17 @@
 let currentPage = 1;
 const itemsPerPage = 7;
 
+// Function to show invalid message
+function showInvalidMessage(message) {
+  const invalidMessage = document.getElementById("invalidMessage");
+  const invalidText = invalidMessage.querySelector(".invalid-text");
+  invalidText.textContent = message;
+  invalidMessage.style.display = "block";
+  setTimeout(() => {
+    invalidMessage.style.display = "none";
+  }, 3000);
+}
+
 function renderProducts(productsToRender) {
   const tbody = document.getElementById("products-tbody");
   tbody.innerHTML = "";
@@ -34,18 +45,11 @@ function renderProducts(productsToRender) {
             ? JSON.parse(product.size_quantities)
             : product.size_quantities;
         
-        // Format as: Size:Color=Qty
+        // Format as: Size (Qty)
         const formattedQuantities = Object.entries(sizeQuantities)
           .filter(([key, qty]) => qty > 0)
           .map(([key, qty]) => {
-            const parts = key.split('_');
-            if (parts.length >= 2) {
-              const size = parts[0];
-              const color = parts.slice(1).join(' ');
-              return `${size}:${color}=${qty}`;
-            } else {
-              return `${key}:${qty}`;
-            }
+            return `${key}: ${qty}`;
           })
           .join(", ");
         sizeQuantitiesDisplay = formattedQuantities || "N/A";
@@ -68,7 +72,6 @@ function renderProducts(productsToRender) {
             <td style="font-weight: 600;">${product.price}</td>
             <td style="${stockClass ? `color: ${stockClass}; font-weight: 600;` : ""}">${product.stock}</td>
             <td>${product.size || "N/A"}</td>
-            <td style="font-size: 0.875rem;">${sizeQuantitiesDisplay}</td>
             <td style="font-size: 0.875rem;">${product.color || "N/A"}</td>
             <td><span class="badge ${statusClass}">${product.status}</span></td>
             <td>
@@ -517,7 +520,45 @@ function addProduct() {
   const simpleQuantityInput = document.getElementById("simpleQuantity");
   const simpleQuantity = simpleQuantityInput ? simpleQuantityInput.value : "0";
   const noSizeColorRequired = document.getElementById("noSizeColorRequired").checked;
-const imageFiles = document.getElementById("productImages").files;
+  const imageFiles = document.getElementById("productImages").files;
+
+  // Validation: Check if sizes are selected or simple product is checked
+  if (!noSizeColorRequired) {
+    // Product has sizes - validate that sizes are selected
+    if (!sizesInput || sizesInput.trim() === '') {
+      showInvalidMessage('Please select at least one size for the product. If the product has no sizes, check "No sizes (simple product)".');
+      return;
+    }
+    
+    // Check if sizeColorConfig has any colors added
+    const sizeColorConfigInput = document.getElementById("sizeColorConfig");
+    let hasColors = false;
+    if (sizeColorConfigInput && sizeColorConfigInput.value) {
+      try {
+        const sizeColorConfig = JSON.parse(sizeColorConfigInput.value);
+        // Check if any size has colors
+        for (const size in sizeColorConfig) {
+          if (sizeColorConfig[size] && sizeColorConfig[size].colors && Object.keys(sizeColorConfig[size].colors).length > 0) {
+            hasColors = true;
+            break;
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing sizeColorConfig:', e);
+      }
+    }
+    
+    if (!hasColors) {
+      showInvalidMessage('Please add at least one color for each selected size.');
+      return;
+    }
+  } else {
+    // Simple product - validate that quantity is provided
+    if (!simpleQuantity || simpleQuantity === "0" || parseInt(simpleQuantity) < 0) {
+      showInvalidMessage('Please enter a quantity for the simple product.');
+      return;
+    }
+  }
 
   // Debug: Log the sizeColorConfig before submitting
   const sizeColorConfigInput = document.getElementById("sizeColorConfig");
@@ -528,7 +569,7 @@ const imageFiles = document.getElementById("productImages").files;
   for (let file of imageFiles) {
     if (file.size > 4 * 1024 * 1024) {
       // 4MB
-      alert(`File ${file.name} is too large. Maximum size is 4MB.`);
+      showInvalidMessage(`File ${file.name} is too large. Maximum size is 4MB.`);
       return;
     }
   }
@@ -599,12 +640,12 @@ const imageFiles = document.getElementById("productImages").files;
 
         closeAddProductModal();
       } else {
-        alert(data.message || "Error adding product");
+        showInvalidMessage(data.message || "Error adding product");
       }
     })
     .catch((error) => {
       console.error("Error:", error);
-      alert("Error adding product");
+      showInvalidMessage("Error adding product");
     });
 }
 

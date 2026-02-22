@@ -11,6 +11,7 @@ include __DIR__ . '/../components/editProductModal.php';
 include __DIR__ . '/../components/deleteProductModal.php';
 include __DIR__ . '/../components/addQuantityModal.php';
 include __DIR__ . '/../components/skuModal.php';
+include __DIR__ . '/../status/invalidStatus.php';
 include '../../back-end/create/addProduct.php';
 include '../../back-end/read/fetchProduct.php';
 include '../../back-end/update/editProduct.php';
@@ -28,6 +29,13 @@ $recentProduct = !empty($products) ? $products[0] : null;
     <div class="success-content">
         <span class="success-icon">✓</span>
         <span class="success-text">Successfully Deleted!</span>
+    </div>
+</div>
+
+<div id="errorMessage" class="error-message" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 10001; max-width: 400px;">
+    <div class="error-content" style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);">
+        <span style="color: #dc2626; font-size: 20px;">⚠</span>
+        <span class="error-text" style="color: #991b1b; font-size: 14px; font-weight: 500;"></span>
     </div>
 </div>
 
@@ -655,7 +663,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             <th>Price</th>
                             <th>Stock</th>
                             <th>Size</th>
-                            <th>Size Quantity</th>
                             <th>Color</th>
                             <th>Status</th>
 
