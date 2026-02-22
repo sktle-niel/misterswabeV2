@@ -242,14 +242,20 @@ $recentProduct = !empty($products) ? $products[0] : null;
 
                     <!-- Product Images -->
                     <div style="grid-column: span 2;">
-                        <label for="productImages" style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
                             Product Images
                         </label>
-                        <input type="file" id="productImages" name="productImages[]" multiple accept="image/*"
-                            style="width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; box-sizing: border-box; transition: all 0.2s;"
-                            onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
-                            onblur="this.style.borderColor='#e5e7eb';">
-                        <p style="margin: 8px 0 0 0; font-size: 13px; color: #6b7280;">Select multiple images (max 4MB each). Leave empty to use default product image</p>
+                        <div id="addImageUploadContainer" style="border: 2px dashed #ddd; border-radius: 8px; padding: 40px; text-align: center; cursor: pointer; transition: all 0.3s; background: #fafafa;"
+                             onclick="document.getElementById('productImages').click();"
+                             ondragover="handleAddDragOver(event)"
+                             ondragleave="handleAddDragLeave(event)"
+                             ondrop="handleAddDrop(event)">
+                            <div style="font-size: 48px; color: #ccc; margin-bottom: 10px;">+</div>
+                            <div style="color: #666; font-size: 16px;">Click to add images or drag & drop</div>
+                            <div style="color: #999; font-size: 12px; margin-top: 5px;">PNG, JPG only (max 4MB each)</div>
+                        </div>
+                        <input type="file" id="productImages" name="productImages[]" multiple accept="image/png,image/jpeg" style="display: none;" onchange="handleAddImageSelection(event)">
+                        <div id="addImagePreview" style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
                     </div>
                 </div>
 
@@ -618,6 +624,109 @@ document.addEventListener('DOMContentLoaded', function() {
     renderSizeCards();
     updateHiddenInputs();
 });
+
+// Add Product Modal - Image Upload Functions
+function handleAddDragOver(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const container = document.getElementById("addImageUploadContainer");
+    container.style.borderColor = "#3b82f6";
+    container.style.backgroundColor = "#eff6ff";
+}
+
+function handleAddDragLeave(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const container = document.getElementById("addImageUploadContainer");
+    container.style.borderColor = "#ddd";
+    container.style.backgroundColor = "#fafafa";
+}
+
+function handleAddDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    const container = document.getElementById("addImageUploadContainer");
+    container.style.borderColor = "#ddd";
+    container.style.backgroundColor = "#fafafa";
+
+    const files = event.dataTransfer.files;
+    const fileInput = document.getElementById("productImages");
+    fileInput.files = files;
+    handleAddImageSelection({ target: { files: files } });
+}
+
+function handleAddImageSelection(event) {
+    const files = event.target.files;
+    const previewContainer = document.getElementById("addImagePreview");
+    previewContainer.innerHTML = "";
+
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type !== "image/png" && file.type !== "image/jpeg") {
+            showInvalidMessage("Only PNG and JPG files are allowed.");
+            event.target.value = "";
+            return;
+        }
+        if (file.size > 4 * 1024 * 1024) {
+            showInvalidMessage("File size exceeds 4MB limit.");
+            event.target.value = "";
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const imgContainer = document.createElement("div");
+            imgContainer.style.position = "relative";
+            imgContainer.style.display = "inline-block";
+
+            const img = document.createElement("img");
+            img.src = e.target.result;
+            img.style.width = "80px";
+            img.style.height = "80px";
+            img.style.objectFit = "cover";
+            img.style.borderRadius = "4px";
+            img.style.border = "1px solid #ddd";
+
+            const removeBtn = document.createElement("button");
+            removeBtn.innerHTML = "×";
+            removeBtn.style.position = "absolute";
+            removeBtn.style.top = "-5px";
+            removeBtn.style.right = "-5px";
+            removeBtn.style.background = "red";
+            removeBtn.style.color = "white";
+            removeBtn.style.border = "none";
+            removeBtn.style.borderRadius = "50%";
+            removeBtn.style.width = "20px";
+            removeBtn.style.height = "20px";
+            removeBtn.style.cursor = "pointer";
+            removeBtn.style.fontSize = "12px";
+            removeBtn.onclick = function () {
+                imgContainer.remove();
+            };
+
+            imgContainer.appendChild(img);
+            imgContainer.appendChild(removeBtn);
+            previewContainer.appendChild(imgContainer);
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// Show invalid message function
+function showInvalidMessage(message) {
+    const errorMessage = document.getElementById("errorMessage");
+    if (errorMessage) {
+        const errorText = errorMessage.querySelector(".error-text");
+        if (errorText) {
+            errorText.textContent = message;
+        }
+        errorMessage.style.display = "block";
+        
+        setTimeout(() => {
+            errorMessage.style.display = "none";
+        }, 3000);
+    }
+}
 </script>
     
     <div>
