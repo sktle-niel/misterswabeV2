@@ -10,7 +10,7 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
 
 <!-- Edit Product Modal -->
 <div class="modal-overlay" id="<?php echo $modalId; ?>Overlay" onclick="<?php echo $closeFunction; ?>OnOverlay(event)" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; justify-content: center; align-items: center; z-index: 10000;">
-    <div class="modal-content" style="max-width: 800px; width: 90%; background: white; border-radius: 16px; padding: 0; position: relative; max-height: 90vh; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
+    <div class="modal-content" style="max-width: 1200px; width: 95%; background: white; border-radius: 16px; padding: 0; position: relative; max-height: 95vh; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
         <!-- Modal Header -->
         <div style="padding: 30px 40px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white; z-index: 10; border-radius: 16px 16px 0 0;">
             <button class="close-btn" onclick="<?php echo $closeFunction; ?>()" style="position: absolute; top: 20px; right: 25px; background: none; border: none; font-size: 28px; cursor: pointer; color: #9ca3af; line-height: 1; transition: color 0.2s;" onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#9ca3af'">×</button>
@@ -62,74 +62,150 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
                             onblur="this.style.borderColor='#e5e7eb';">
                     </div>
 
-                    <!-- Size Selection for Editing -->
+                    <!-- Size Configuration Section - Same as Add Product Modal (without color adding) -->
                     <div style="grid-column: span 2;">
-                        <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
-                            Available Sizes <span style="color: #6b7280; font-weight: normal; font-size: 12px;">(Uncheck to remove size)</span>
-                        </label>
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                            <label style="display: block; font-weight: 600; font-size: 14px; color: #374151;">
+                                Product Sizes
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #6b7280;">
+                                <input type="checkbox" id="editNoSizeColorRequired" onchange="toggleEditSizeColorRequired()" style="width: 16px; height: 16px; cursor: pointer;">
+                                <span>No sizes (simple product)</span>
+                            </label>
+                        </div>
                         
-                        <!-- Size Type Selection -->
-                        <div id="editSizeTypeSection" style="margin-bottom: 16px;">
-                            <div style="display: flex; gap: 12px;">
-                                <button type="button" onclick="selectEditSizeType('alpha')" id="editBtnAlphaSize"
-                                    style="flex: 1; padding: 12px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
-                                    Alpha (XS, S, M, L, XL, XXL)
-                                </button>
-                                <button type="button" onclick="selectEditSizeType('numeric')" id="editBtnNumericSize"
-                                    style="flex: 1; padding: 12px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
-                                    Numeric (39-47)
-                                </button>
+                        <!-- Size Configuration Container -->
+                        <div id="editSizeConfigSection">
+                            <!-- Size Type Selection -->
+                            <div id="editSizeTypeSelection" style="margin-bottom: 16px;">
+                                <p style="font-size: 13px; color: #6b7280; margin-bottom: 12px;">Select size type:</p>
+                                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                                    <button type="button" onclick="selectEditSizeType('alpha')" id="editBtnAlphaSize"
+                                        style="flex: 1; padding: 16px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="4,7 4,4 20,4 20,7"></polyline>
+                                            <line x1="9" y1="20" x2="15" y2="20"></line>
+                                            <line x1="12" y1="4" x2="12" y2="20"></line>
+                                        </svg>
+                                        <span>Alpha Based</span>
+                                        <span style="font-size: 11px; color: #6b7280; font-weight: normal;">(XS, S, M, L, XL, XXL)</span>
+                                    </button>
+                                    <button type="button" onclick="selectEditSizeType('numeric')" id="editBtnNumericSize"
+                                        style="flex: 1; padding: 16px; background: #f3f4f6; border: 2px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="4" y1="6" x2="20" y2="6"></line>
+                                            <line x1="4" y1="12" x2="20" y2="12"></line>
+                                            <line x1="4" y1="18" x2="20" y2="18"></line>
+                                        </svg>
+                                        <span>Number Based</span>
+                                        <span style="font-size: 11px; color: #6b7280; font-weight: normal;">(39, 40, 41, 42... 47)</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Size Selection (Hidden by default) -->
+                            <div id="editSizeSelectionArea" style="display: none;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                                    <p style="font-size: 13px; color: #6b7280; margin: 0;">Select available sizes:</p>
+                                    <button type="button" onclick="resetEditSizeType()" 
+                                        style="padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 12px; color: #6b7280;">
+                                        Change Size Type
+                                    </button>
+                                </div>
+                                
+                                <!-- Alpha Sizes -->
+                                <div id="editAlphaSizesSection" style="display: none;">
+                                    <p style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">Clothing Sizes:</p>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="editAlphaSizesContainer">
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="XS" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>XS</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="S" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>S</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="M" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>M</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="L" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>L</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="XL" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>XL</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="XXL" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>XXL</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Numeric Sizes -->
+                                <div id="editNumericSizesSection" style="display: none;">
+                                    <p style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">Shoe Sizes (EU):</p>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 8px;" id="editNumericSizesContainer">
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="39" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>39</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="40" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>40</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="41" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>41</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="42" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>42</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="43" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>43</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="44" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>44</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="45" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>45</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="46" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>46</span>
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                            <input type="checkbox" value="47" class="edit-size-checkbox" onchange="toggleEditSize(this)" style="cursor: pointer;">
+                                            <span>47</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Selected Sizes Display -->
+                                <div id="editSelectedSizesDisplay" style="margin-top: 16px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+                                    <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Selected sizes:</p>
+                                    <div id="editSelectedSizesList" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        <!-- Selected sizes will appear here -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <!-- Alpha Sizes -->
-                        <div id="editAlphaSizesSection" style="display: none; margin-bottom: 12px;">
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="XS" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span>XS</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="S" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span>S</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="M" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span>M</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="L" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span>L</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="XL" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span>XL</span>
-                                </label>
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="XXL" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span>XXL</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <!-- Numeric Sizes -->
-                        <div id="editNumericSizesSection" style="display: none; margin-bottom: 12px;">
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                <?php for ($i = 39; $i <= 47; $i++): ?>
-                                <label style="display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: #f3f4f6; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                    <input type="checkbox" value="<?php echo $i; ?>" class="edit-size-checkbox" style="cursor: pointer;">
-                                    <span><?php echo $i; ?></span>
-                                </label>
-                                <?php endfor; ?>
-                            </div>
-                        </div>
-                        
-                        <!-- Current Sizes Display -->
-                        <div id="editCurrentSizesDisplay" style="margin-top: 12px; padding: 12px; background: #f9fafb; border-radius: 8px;">
-                            <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Current sizes (uncheck to remove):</p>
-                            <div id="editSelectedSizesList" style="display: flex; flex-wrap: wrap; gap: 8px;">
-                                <!-- Sizes will be populated here -->
-                            </div>
+                        <!-- Simple Product Quantity (when no sizes) -->
+                        <div id="editSimpleQuantitySection" style="display: none; margin-top: 16px;">
+                            <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
+                                Product Quantity
+                            </label>
+                            <input type="number" id="editSimpleQuantity" min="0" value="0" 
+                                style="width: 200px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"
+                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                onblur="this.style.borderColor='#e5e7eb';">
                         </div>
                         
                         <input type="hidden" id="editProductSizes" name="editProductSizes">
@@ -183,9 +259,8 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
 <script>
 // Edit modal variables
 let editCategoriesLoaded = false;
-let editCurrentSizes = [];
+let editSelectedSizes = [];
 
-// Load categories for edit modal
 function loadEditCategories() {
     return fetch("../../back-end/read/fetchCategory.php")
         .then((response) => response.json())
@@ -206,6 +281,9 @@ function loadEditCategories() {
 }
 
 function selectEditSizeType(type) {
+    document.getElementById('editSizeTypeSelection').style.display = 'none';
+    document.getElementById('editSizeSelectionArea').style.display = 'block';
+    
     if (type === 'alpha') {
         document.getElementById('editAlphaSizesSection').style.display = 'block';
         document.getElementById('editNumericSizesSection').style.display = 'none';
@@ -215,12 +293,108 @@ function selectEditSizeType(type) {
     }
 }
 
+function resetEditSizeType() {
+    editSelectedSizes = [];
+    document.getElementById('editSizeTypeSelection').style.display = 'block';
+    document.getElementById('editSizeSelectionArea').style.display = 'none';
+    document.querySelectorAll('.edit-size-checkbox').forEach(cb => cb.checked = false);
+    renderEditSelectedSizes();
+    updateEditHiddenInputs();
+}
+
+function toggleEditSizeColorRequired() {
+    const checkbox = document.getElementById('editNoSizeColorRequired');
+    const configSection = document.getElementById('editSizeConfigSection');
+    const simpleSection = document.getElementById('editSimpleQuantitySection');
+    
+    if (checkbox.checked) {
+        configSection.style.display = 'none';
+        simpleSection.style.display = 'block';
+    } else {
+        configSection.style.display = 'block';
+        simpleSection.style.display = 'none';
+    }
+    updateEditHiddenInputs();
+}
+
+function toggleEditSize(checkbox) {
+    const size = checkbox.value;
+    
+    if (checkbox.checked) {
+        if (!editSelectedSizes.includes(size)) {
+            editSelectedSizes.push(size);
+        }
+    } else {
+        editSelectedSizes = editSelectedSizes.filter(s => s !== size);
+    }
+    
+    renderEditSelectedSizes();
+    updateEditHiddenInputs();
+}
+
+function removeEditSize(size) {
+    editSelectedSizes = editSelectedSizes.filter(s => s !== size);
+    document.querySelectorAll('.edit-size-checkbox').forEach(cb => {
+        if (cb.value === size) {
+            cb.checked = false;
+        }
+    });
+    renderEditSelectedSizes();
+    updateEditHiddenInputs();
+}
+
+function renderEditSelectedSizes() {
+    const container = document.getElementById('editSelectedSizesList');
+    if (!container) return;
+    
+    if (editSelectedSizes.length === 0) {
+        container.innerHTML = '<span style="color: #9ca3af; font-size: 13px;">No sizes selected</span>';
+        return;
+    }
+    
+    let html = '';
+    for (let i = 0; i < editSelectedSizes.length; i++) {
+        const size = editSelectedSizes[i];
+        const sizeEscaped = size.replace(/'/g, "\\'");
+        html += `
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: #dbeafe; color: #1e40af; border-radius: 16px; font-size: 13px; font-weight: 500;">
+                ${size}
+                <button type="button" onclick="removeEditSize('${sizeEscaped}')" 
+                    style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #1e40af;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </span>
+        `;
+    }
+    
+    container.innerHTML = html;
+}
+
+function updateEditHiddenInputs() {
+    document.getElementById('editProductSizes').value = editSelectedSizes.join(',');
+}
+
+function resetEditForm() {
+    editSelectedSizes = [];
+    document.getElementById('editNoSizeColorRequired').checked = false;
+    document.getElementById('editSizeConfigSection').style.display = 'block';
+    document.getElementById('editSizeTypeSelection').style.display = 'block';
+    document.getElementById('editSizeSelectionArea').style.display = 'none';
+    document.getElementById('editAlphaSizesSection').style.display = 'none';
+    document.getElementById('editNumericSizesSection').style.display = 'none';
+    document.getElementById('editSimpleQuantitySection').style.display = 'none';
+    document.getElementById('editSimpleQuantity').value = '0';
+    document.querySelectorAll('.edit-size-checkbox').forEach(cb => cb.checked = false);
+    renderEditSelectedSizes();
+    updateEditHiddenInputs();
+}
+
 // Edit Product Modal Functions
 function closeEditProductModal() {
     document.getElementById("editProductModalOverlay").style.display = "none";
     document.getElementById("editProductForm").reset();
     document.getElementById("editImagePreview").innerHTML = "";
-    editCurrentSizes = [];
+    resetEditForm();
 }
 
 function closeEditProductModalOnOverlay(event) {
@@ -233,12 +407,10 @@ function openEditProductModal(sku) {
     const product = products.find((p) => p.sku === sku);
     if (!product) return;
 
-    // Reset form
     document.getElementById("editProductForm").reset();
     document.getElementById("editImagePreview").innerHTML = "";
-    editCurrentSizes = [];
+    resetEditForm();
 
-    // Load categories first, then populate form
     if (!editCategoriesLoaded) {
         loadEditCategories().then(() => {
             populateEditForm(product);
@@ -249,13 +421,74 @@ function openEditProductModal(sku) {
 }
 
 function populateEditForm(product) {
-    // Populate basic fields
     document.getElementById("editProductSku").value = product.sku;
     document.getElementById("editProductName").value = product.name;
     document.getElementById("editProductCategory").value = product.category;
     document.getElementById("editProductPrice").value = product.price;
     
-    // Parse and display current sizes
+    // Preview existing product images
+    const previewContainer = document.getElementById("editImagePreview");
+    previewContainer.innerHTML = "";
+    
+    // Store existing images in a data attribute for tracking
+    const existingImages = [];
+    
+    if (product.image) {
+        // Handle single image or multiple images
+        const images = Array.isArray(product.image) ? product.image : [product.image];
+        images.forEach((imgSrc, index) => {
+            if (imgSrc && imgSrc !== 'null') {
+                // Fix image path if needed
+                let finalSrc = imgSrc;
+                if (!imgSrc.startsWith('http') && !imgSrc.startsWith('../../')) {
+                    finalSrc = '../../../' + imgSrc;
+                }
+                
+                const imgContainer = document.createElement("div");
+                imgContainer.style.position = "relative";
+                imgContainer.style.display = "inline-block";
+                imgContainer.dataset.existingImage = "true";
+                imgContainer.dataset.imageIndex = index;
+                imgContainer.dataset.imageSrc = imgSrc;
+
+                const img = document.createElement("img");
+                img.src = finalSrc;
+                img.style.width = "80px";
+                img.style.height = "80px";
+                img.style.objectFit = "cover";
+                img.style.borderRadius = "4px";
+                img.style.border = "1px solid #ddd";
+
+                const removeBtn = document.createElement("button");
+                removeBtn.innerHTML = "×";
+                removeBtn.style.position = "absolute";
+                removeBtn.style.top = "-5px";
+                removeBtn.style.right = "-5px";
+                removeBtn.style.background = "red";
+                removeBtn.style.color = "white";
+                removeBtn.style.border = "none";
+                removeBtn.style.borderRadius = "50%";
+                removeBtn.style.width = "20px";
+                removeBtn.style.height = "20px";
+                removeBtn.style.cursor = "pointer";
+                removeBtn.style.fontSize = "12px";
+                removeBtn.onclick = function () {
+                    imgContainer.remove();
+                };
+
+                imgContainer.appendChild(img);
+                imgContainer.appendChild(removeBtn);
+                previewContainer.appendChild(imgContainer);
+                
+                existingImages.push(imgSrc);
+            }
+        });
+    }
+    
+    // Store existing images count for validation
+    previewContainer.dataset.existingImagesCount = existingImages.length;
+    
+    // Parse sizes
     let currentSizes = [];
     if (product.size && product.size !== 'N/A') {
         currentSizes = product.size.split(',').map(s => {
@@ -267,37 +500,39 @@ function populateEditForm(product) {
         });
     }
     
-    editCurrentSizes = [...currentSizes];
+    // Determine if it's a simple product (no sizes)
+    const isSimpleProduct = !product.size || product.size === 'N/A' || currentSizes.length === 0;
     
-    // Determine size type and show appropriate section
-    const numericSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47'];
-    const hasNumericSizes = currentSizes.some(s => numericSizes.includes(s));
-    
-    if (hasNumericSizes) {
-        selectEditSizeType('numeric');
+    if (isSimpleProduct) {
+        document.getElementById('editNoSizeColorRequired').checked = true;
+        document.getElementById('editSizeConfigSection').style.display = 'none';
+        document.getElementById('editSimpleQuantitySection').style.display = 'block';
+        
+        // Set simple quantity from stock
+        document.getElementById('editSimpleQuantity').value = product.stock || 0;
     } else {
-        selectEditSizeType('alpha');
+        // Determine size type
+        const numericSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47'];
+        const hasNumericSizes = currentSizes.some(s => numericSizes.includes(s));
+        
+        if (hasNumericSizes) {
+            selectEditSizeType('numeric');
+        } else {
+            selectEditSizeType('alpha');
+        }
+        
+        // Set selected sizes
+        editSelectedSizes = [...currentSizes];
+        
+        // Check the checkboxes
+        setTimeout(() => {
+            document.querySelectorAll('.edit-size-checkbox').forEach(checkbox => {
+                checkbox.checked = currentSizes.includes(checkbox.value);
+            });
+            renderEditSelectedSizes();
+            updateEditHiddenInputs();
+        }, 100);
     }
-    
-    // Check the checkboxes for current sizes
-    setTimeout(() => {
-        document.querySelectorAll('.edit-size-checkbox').forEach(checkbox => {
-            checkbox.checked = currentSizes.includes(checkbox.value);
-        });
-    }, 100);
-    
-    // Add event listeners to checkboxes
-    document.querySelectorAll('.edit-size-checkbox').forEach(checkbox => {
-        checkbox.onchange = function() {
-            if (this.checked) {
-                if (!editCurrentSizes.includes(this.value)) {
-                    editCurrentSizes.push(this.value);
-                }
-            } else {
-                editCurrentSizes = editCurrentSizes.filter(s => s !== this.value);
-            }
-        };
-    });
 
     document.getElementById("editProductModalOverlay").style.display = "flex";
 }
@@ -335,8 +570,9 @@ function handleEditDrop(event) {
 function handleEditImageSelection(event) {
     const files = event.target.files;
     const previewContainer = document.getElementById("editImagePreview");
-    previewContainer.innerHTML = "";
 
+    // Don't clear existing images - append new ones instead
+    
     for (let i = 0; i < files.length; i++) {
         const file = files[i];
         if (file.type !== "image/png" && file.type !== "image/jpeg") {
@@ -396,7 +632,18 @@ function updateProduct() {
         return;
     }
 
-    // Get form elements
+    // Validation: Check if product has at least one image
+    const previewContainer = document.getElementById("editImagePreview");
+    const existingImagesCount = parseInt(previewContainer.dataset.existingImagesCount) || 0;
+    const newImageInput = document.getElementById("editProductImages");
+    const newImagesCount = newImageInput && newImageInput.files ? newImageInput.files.length : 0;
+    const remainingImages = previewContainer.querySelectorAll('[data-existing-image="true"]').length;
+    
+    if (existingImagesCount === 0 && newImagesCount === 0 && remainingImages === 0) {
+        showInvalidMessage('Please upload at least one product image.');
+        return;
+    }
+
     const skuElement = document.getElementById("editProductSku");
     const nameElement = document.getElementById("editProductName");
     const categoryElement = document.getElementById("editProductCategory");
@@ -413,27 +660,31 @@ function updateProduct() {
     const category = categoryElement.value;
     const price = priceElement.value.trim().replace(/[₱,]/g, "");
     
-    // Get selected sizes (from checkboxes)
-    const selectedSizes = [];
-    document.querySelectorAll('.edit-size-checkbox:checked').forEach(checkbox => {
-        selectedSizes.push(checkbox.value);
-    });
+    // Get sizes
+    const isSimpleProduct = document.getElementById('editNoSizeColorRequired').checked;
+    let selectedSizes = [];
+    
+    if (!isSimpleProduct) {
+        selectedSizes = editSelectedSizes;
+    }
 
-    // Validate required fields
     if (!originalSku || !name || !category || !price) {
         showInvalidMessage("Please fill in all required fields");
         return;
     }
 
-    // Prepare data for AJAX request
     const formData = new FormData();
     formData.append("originalSku", originalSku);
     formData.append("name", name);
     formData.append("category", category);
     formData.append("price", price);
     formData.append("productSizes", selectedSizes.join(','));
+    formData.append("isSimpleProduct", isSimpleProduct ? '1' : '0');
+    
+    if (isSimpleProduct) {
+        formData.append("simpleQuantity", document.getElementById('editSimpleQuantity').value || 0);
+    }
 
-    // Append image files
     const imageInput = document.getElementById("editProductImages");
     if (imageInput && imageInput.files) {
         for (let i = 0; i < imageInput.files.length; i++) {
@@ -441,7 +692,6 @@ function updateProduct() {
         }
     }
 
-    // Send AJAX request to editProduct.php
     fetch("../../back-end/update/editProduct.php", {
         method: "POST",
         body: formData,
@@ -449,7 +699,6 @@ function updateProduct() {
         .then((response) => response.json())
         .then((data) => {
             if (data.success) {
-                // Update the local products array
                 const productIndex = products.findIndex((p) => p.sku === originalSku);
                 if (productIndex !== -1) {
                     const updatedProduct = {
@@ -465,7 +714,8 @@ function updateProduct() {
                             : products[productIndex].image,
                         size: selectedSizes.length > 0 ? selectedSizes.join(', ') : 'N/A',
                         size_quantities: data.size_quantities || products[productIndex].size_quantities,
-                        color: products[productIndex].color,
+                        size_color_quantities: data.size_color_quantities || products[productIndex].size_color_quantities,
+                        color: data.color || products[productIndex].color,
                     };
 
                     products[productIndex] = updatedProduct;
@@ -473,7 +723,6 @@ function updateProduct() {
                     filterProducts();
                 }
 
-                // Show success message
                 const successMessage = document.getElementById("successMessage");
                 if (successMessage) {
                     const successText = successMessage.querySelector(".success-text");

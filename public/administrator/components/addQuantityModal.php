@@ -223,7 +223,7 @@ function addColorForSize(size, sku) {
   const colorName = colorInput.value.trim();
   
   if (!colorName) {
-    alert('Please enter a color name');
+    showInvalidMessage('Please enter a color name');
     return;
   }
   
@@ -232,7 +232,7 @@ function addColorForSize(size, sku) {
   const existingInputs = colorsContainer.querySelectorAll('.color-quantity-input');
   for (let input of existingInputs) {
     if (input.dataset.color.toLowerCase() === colorName.toLowerCase()) {
-      alert('This color already exists for size ' + size);
+      showInvalidMessage('This color already exists for size ' + size);
       return;
     }
   }
@@ -284,8 +284,32 @@ function updateSizeTotal(size) {
 
 function addQuantity() {
   const form = document.getElementById("addQuantityForm");
+  
+  // Check if sizes are loaded
+  const sizesContainer = document.getElementById("sizesContainer");
+  const sizesEmptyState = document.getElementById("sizesEmptyState");
+  const sizesErrorState = document.getElementById("sizesErrorState");
+  
   if (!form.checkValidity()) {
     form.reportValidity();
+    return;
+  }
+  
+  // Check if there are sizes defined
+  if (sizesEmptyState.style.display === "block") {
+    showInvalidMessage("This product has no sizes defined. Please add sizes to the product first.");
+    return;
+  }
+  
+  // Check if there was an error loading sizes
+  if (sizesErrorState.style.display === "block") {
+    showInvalidMessage("Failed to load product sizes. Please try again.");
+    return;
+  }
+  
+  // Check if sizes container is empty
+  if (!sizesContainer.innerHTML || sizesContainer.innerHTML.trim() === "") {
+    showInvalidMessage("No sizes available for this product.");
     return;
   }
 
@@ -306,7 +330,7 @@ function addQuantity() {
   });
   
   if (updates.length === 0) {
-    alert("Please enter at least one quantity");
+    showInvalidMessage("Please enter at least one quantity");
     return;
   }
   
@@ -365,7 +389,7 @@ function processQuantityUpdates(updates, index, submitBtn) {
         submitBtn.disabled = false;
         submitBtn.style.opacity = "1";
         submitBtn.style.cursor = "pointer";
-        alert("Error: " + (data.message || "Unknown error"));
+        showInvalidMessage("Error: " + (data.message || "Unknown error"));
       }
     })
     .catch((error) => {
@@ -373,7 +397,7 @@ function processQuantityUpdates(updates, index, submitBtn) {
       submitBtn.disabled = false;
       submitBtn.style.opacity = "1";
       submitBtn.style.cursor = "pointer";
-      alert("Error adding quantity");
+      showInvalidMessage("Error adding quantity");
     });
 }
 </script>

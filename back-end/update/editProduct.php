@@ -11,31 +11,13 @@ error_reporting(0);
 include '../../config/connection.php';
 require_once __DIR__ . '/../utils/skuUtils.php';
 
-
 function editProduct($data) {
     global $conn;
 
     // Sanitize inputs
     $originalSku = mysqli_real_escape_string($conn, $data['originalSku']);
     $name = mysqli_real_escape_string($conn, $data['name']);
-
-    // Handle category
-    $category = $data['category'];
-    $categoryName = '';
-    
-    if (is_numeric($category)) {
-        $category = intval($category);
-        $categorySql = "SELECT name FROM categories WHERE id = $category LIMIT 1";
-        $categoryResult = $conn->query($categorySql);
-        if ($categoryResult && $categoryResult->num_rows > 0) {
-            $categoryRow = $categoryResult->fetch_assoc();
-            $categoryName = $categoryRow['name'];
-        } else {
-            return ['success' => false, 'message' => 'Invalid category'];
-        }
-    } else {
-        $categoryName = $category;
-    }
+    $categoryName = mysqli_real_escape_string($conn, $data['category']);
 
     // Clean price value
     $priceStr = str_replace(['₱', ','], '', $data['price']);
@@ -44,13 +26,25 @@ function editProduct($data) {
     // SKU remains unchanged
     $sku = $originalSku;
 
-    // Handle sizes from form
-    $sizesInput = isset($data['productSizes']) ? trim($data['productSizes']) : '';
+    // Check if simple product (no sizes)
+    $isSimpleProduct = isset($data['isSimpleProduct']) && $data['isSimpleProduct'] == '1';
+
+    // Handle sizes
     $newSizes = [];
-    if (!empty($sizesInput)) {
-        $newSizes = array_map('trim', explode(',', $sizesInput));
-        $newSizes = array_filter($newSizes, function($size) { return !empty($size); });
-        $newSizes = array_values($newSizes);
+    $simpleQuantity = 0;
+
+    if ($isSimpleProduct) {
+        // Simple product - no sizes
+        $newSizes = [];
+        $simpleQuantity = isset($data['simpleQuantity']) ? intval($data['simpleQuantity']) : 0;
+    } else {
+        // Product with sizes
+        $sizesInput = isset($data['productSizes']) ? trim($data['productSizes']) : '';
+        if (!empty($sizesInput)) {
+            $newSizes = array_map('trim', explode(',', $sizesInput));
+            $newSizes = array_filter($newSizes, function($size) { return !empty($size); });
+            $newSizes = array_values($newSizes);
+        }
     }
     
     // Fetch current product data
@@ -60,25 +54,54 @@ function editProduct($data) {
     if ($fetchResult && $fetchResult->num_rows > 0) {
         $row = $fetchResult->fetch_assoc();
         
-        // Get existing size data
+        // Get existing data
         $currentSizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
         $currentSizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
+        $existingColors = json_decode($row['color'] ?? '[]', true);
         
-        // Remove sizes that are no longer selected
+        // Initialize arrays if null
+        if (!is_array($currentSizeQuantities)) $currentSizeQuantities = [];
+        if (!is_array($currentSizeColorQuantities)) $currentSizeColorQuantities = [];
+        if (!is_array($existingColors)) $existingColors = [];
+        
+        // Build updated size quantities
         $updatedSizeQuantities = [];
         $updatedSizeColorQuantities = [];
+        $allColors = $existingColors;
         
-        foreach ($newSizes as $size) {
-            if (isset($currentSizeQuantities[$size])) {
-                $updatedSizeQuantities[$size] = $currentSizeQuantities[$size];
+        if ($isSimpleProduct) {
+            // Simple product - just set the quantity
+            $updatedSizeQuantities = [];
+            $updatedSizeColorQuantities = [];
+            $stock = $simpleQuantity;
+        } else {
+            // Product with sizes - keep existing quantities
+            foreach ($newSizes as $size) {
+                // Keep existing quantity for this size if available
+                if (isset($currentSizeQuantities[$size])) {
+                    $updatedSizeQuantities[$size] = $currentSizeQuantities[$size];
+                } else {
+                    $updatedSizeQuantities[$size] = 0;
+                }
+                
+                // Keep existing color quantities for this size if available
+                if (isset($currentSizeColorQuantities[$size])) {
+                    $updatedSizeColorQuantities[$size] = $currentSizeColorQuantities[$size];
+                    
+                    // Collect colors
+                    foreach (array_keys($currentSizeColorQuantities[$size]) as $color) {
+                        if (!in_array($color, $allColors)) {
+                            $allColors[] = $color;
+                        }
+                    }
+                } else {
+                    $updatedSizeColorQuantities[$size] = [];
+                }
             }
-            if (isset($currentSizeColorQuantities[$size])) {
-                $updatedSizeColorQuantities[$size] = $currentSizeColorQuantities[$size];
-            }
+            
+            // Calculate stock
+            $stock = array_sum($updatedSizeQuantities);
         }
-        
-        // Calculate new stock
-        $stock = array_sum($updatedSizeQuantities);
         
         // Determine status
         if ($stock == 0) {
@@ -92,6 +115,7 @@ function editProduct($data) {
         $sizeString = implode(',', $newSizes);
         $sizeQuantitiesJson = json_encode($updatedSizeQuantities);
         $sizeColorQuantitiesJson = json_encode($updatedSizeColorQuantities);
+        $colorJson = json_encode($allColors);
     } else {
         return ['success' => false, 'message' => 'Product not found'];
     }
@@ -145,6 +169,7 @@ function editProduct($data) {
         "size = '$sizeString'",
         "size_quantities = '$sizeQuantitiesJson'",
         "size_color_quantities = '$sizeColorQuantitiesJson'",
+        "color = '$colorJson'",
         "status = '$status'"
     ];
 
@@ -164,7 +189,9 @@ function editProduct($data) {
             'images' => $images,
             'stock' => $stock,
             'status' => $status,
-            'size_quantities' => $updatedSizeQuantities
+            'size_quantities' => $updatedSizeQuantities,
+            'size_color_quantities' => $updatedSizeColorQuantities,
+            'color' => $allColors
         ];
     } else {
         error_log('Database error: ' . $conn->error);
@@ -172,7 +199,6 @@ function editProduct($data) {
         return ['success' => false, 'message' => 'Database error: ' . $conn->error];
     }
 }
-
 
 // If called directly via POST, handle it
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -193,7 +219,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 'name' => $_POST['name'],
                 'category' => $_POST['category'],
                 'price' => $_POST['price'],
-                'productSizes' => $_POST['productSizes'] ?? ''
+                'productSizes' => $_POST['productSizes'] ?? '',
+                'isSimpleProduct' => $_POST['isSimpleProduct'] ?? '0',
+                'simpleQuantity' => $_POST['simpleQuantity'] ?? 0
             ];
             
             $response = editProduct($data);
