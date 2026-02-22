@@ -207,7 +207,7 @@ function renderSizeColorInputs(sizes) {
                style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
         <button type="button" 
                 onclick="addColorForSize('${sizeData.size}', '${sizeData.sku}')"
-                style="padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
           Add Color
         </button>
       </div>

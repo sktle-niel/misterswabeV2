@@ -4,7 +4,7 @@ include '../../config/connection.php';
 function fetchProducts() {
     global $conn;
 
-    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_quantities, i.color FROM inventory i ORDER BY i.id DESC";
+    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_color_quantities, i.color FROM inventory i ORDER BY i.id DESC";
     $result = $conn->query($sql);
 
     $products = [];
@@ -20,9 +20,54 @@ function fetchProducts() {
                 return '../../../' . $img; // From public/administrator/pages/ to uploads/
             }, $images);
 
-            // Calculate stock from size_quantities
-            $size_quantities_array = json_decode($row['size_quantities'] ?? '{}', true);
-            $calculated_stock = array_sum($size_quantities_array);
+            // Calculate stock from size_color_quantities and format color display
+            $size_color_quantities = json_decode($row['size_color_quantities'] ?? '{}', true);
+            $dbStock = intval($row['stock'] ?? 0);
+            $calculated_stock = 0;
+            $colorDisplay = 'N/A';
+            
+            // Check if product has sizes (size_color_quantities has data)
+            $hasSizes = !empty($size_color_quantities) && is_array($size_color_quantities);
+            
+            if ($hasSizes) {
+                // Product has sizes - calculate stock from size_color_quantities
+                $colorParts = [];
+                foreach ($size_color_quantities as $size => $colors) {
+                    if (is_array($colors)) {
+                        $calculated_stock += array_sum($colors);
+                        foreach ($colors as $color => $qty) {
+                            if ($qty > 0) {
+                                $colorParts[] = $color . ' (' . $qty . ')';
+                            }
+                        }
+                    }
+                }
+                if (!empty($colorParts)) {
+                    $colorDisplay = implode(', ', $colorParts);
+                }
+            } else {
+                // Simple product (no sizes) - use the stock from database
+                $calculated_stock = $dbStock;
+                // Also get color from the color column for simple products
+                $colorData = json_decode($row['color'] ?? '[]', true);
+                if (!empty($colorData) && is_array($colorData)) {
+                    $colorDisplay = implode(', ', $colorData);
+                }
+            }
+
+            // Format size with EUR prefix for numeric sizes
+            $sizeValue = $row['size'] ?: 'N/A';
+            if ($sizeValue !== 'N/A') {
+                $sizeArray = array_map('trim', explode(',', $sizeValue));
+                $formattedSizes = array_map(function($s) {
+                    // Check if the size is numeric (like 39, 40, etc.)
+                    if (is_numeric($s)) {
+                        return 'EUR ' . $s;
+                    }
+                    return $s;
+                }, $sizeArray);
+                $sizeValue = implode(', ', $formattedSizes);
+            }
 
             $products[] = [
                 'id' => $row['id'],
@@ -31,9 +76,8 @@ function fetchProducts() {
                 'category' => $row['category'],
                 'price' => '₱' . number_format($row['price'], 2),
                 'stock' => $calculated_stock,
-                'size' => $row['size'] ?: 'N/A',
-                'size_quantities' => $row['size_quantities'],
-                'color' => $row['color'] ? str_replace(['"', '[', ']'], '', $row['color']) : 'N/A',
+                'size' => $sizeValue,
+                'color' => $colorDisplay,
 
                 'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
                 'images' => $adjustedImages, // Keep all images with adjusted paths

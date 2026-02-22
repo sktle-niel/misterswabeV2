@@ -166,6 +166,13 @@ function addProduct($data) {
         $conn->query("ALTER TABLE inventory ADD COLUMN size_color_quantities JSON NULL");
     }
     
+    // Check if size_quantities column exists, if not create it
+    $checkSizeQtyColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'size_quantities'");
+    if (!$checkSizeQtyColumn || $checkSizeQtyColumn->num_rows == 0) {
+        // Create the column if it doesn't exist
+        $conn->query("ALTER TABLE inventory ADD COLUMN size_quantities JSON NULL");
+    }
+    
     $sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, color, images, status)
             VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$colorJson', '$imagesJson', '$status')";
 

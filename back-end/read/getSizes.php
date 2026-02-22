@@ -22,8 +22,8 @@ if (empty($baseSku)) {
 }
 
 try {
-    // Fetch the product by base SKU
-    $stmt = $conn->prepare("SELECT sku, size, size_quantities FROM inventory WHERE sku = ?");
+    // Fetch the product by base SKU including size_color_quantities
+    $stmt = $conn->prepare("SELECT sku, size, size_quantities, size_color_quantities FROM inventory WHERE sku = ?");
     if (!$stmt) {
         echo json_encode(['success' => false, 'message' => 'Query preparation failed: ' . $conn->error]);
         exit;
@@ -42,6 +42,7 @@ try {
         $row = $result->fetch_assoc();
         $sizeString = $row['size'];
         $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
+        $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
 
         // If size is a comma-separated string, split it
         if (strpos($sizeString, ',') !== false) {
@@ -49,19 +50,25 @@ try {
             $sizes = [];
             foreach ($sizeArray as $size) {
                 $quantity = (int)($sizeQuantities[$size] ?? 0);
+                // Get colors for this size from size_color_quantities
+                $colors = isset($sizeColorQuantities[$size]) ? $sizeColorQuantities[$size] : [];
                 $sizes[] = [
                     'sku' => $baseSku . '-' . $size,
                     'size' => $size,
-                    'stock' => $quantity
+                    'stock' => $quantity,
+                    'size_quantities' => $colors
                 ];
             }
         } else {
             // Single size
             $quantity = (int)($sizeQuantities[$sizeString] ?? 0);
+            // Get colors for this size from size_color_quantities
+            $colors = isset($sizeColorQuantities[$sizeString]) ? $sizeColorQuantities[$sizeString] : [];
             $sizes = [[
                 'sku' => $baseSku . '-' . $sizeString,
                 'size' => $sizeString,
-                'stock' => $quantity
+                'stock' => $quantity,
+                'size_quantities' => $colors
             ]];
         }
 
