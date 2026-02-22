@@ -32,16 +32,16 @@ $recentProduct = !empty($products) ? $products[0] : null;
     </div>
 </div>
 
-<div id="errorMessage" class="error-message" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 10001; max-width: 400px;">
-    <div class="error-content" style="background: #fee2e2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);">
-        <span style="color: #dc2626; font-size: 20px;">⚠</span>
-        <span class="error-text" style="color: #991b1b; font-size: 14px; font-weight: 500;"></span>
+<div id="invalidMessage" class="invalid-message" style="display: none;">
+    <div class="invalid-content">
+        <span class="invalid-icon">✗</span>
+        <span class="invalid-text">Invalid!</span>
     </div>
 </div>
 
 <!-- Add Product Modal - Improved Layout -->
-<div class="modal-overlay" id="addProductModalOverlay" onclick="closeAddProductModalOnOverlay(event)" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 10000;">
-    <div class="modal-content" style="max-width: 1200px; width: 95%; background: white; border-radius: 16px; padding: 0; position: relative; max-height: 95vh; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
+<div class="modal-overlay" id="addProductModalOverlay" onclick="closeAddProductModalOnOverlay(event)" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; justify-content: center; align-items: center; z-index: 10000;">
+    <div class="modal-content" style="max-width: 600px; width: 95%; background: white; border-radius: 16px; padding: 0; position: relative; max-height: 95vh; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
         <!-- Modal Header -->
         <div style="padding: 30px 40px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white; z-index: 10; border-radius: 16px 16px 0 0;">
             <button class="close-btn" onclick="closeAddProductModal()" style="position: absolute; top: 20px; right: 25px; background: none; border: none; font-size: 28px; cursor: pointer; color: #9ca3af; line-height: 1; transition: color 0.2s;" onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#9ca3af'">×</button>
@@ -218,9 +218,12 @@ $recentProduct = !empty($products) ? $products[0] : null;
                                     </div>
                                 </div>
                                 
-                                <!-- Size Cards Container -->
-                                <div id="sizesContainer" style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
-                                    <!-- Dynamic size cards will be added here -->
+                                <!-- Selected Sizes Display - Same as Edit Modal -->
+                                <div id="selectedSizesDisplay" style="margin-top: 16px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+                                    <p style="font-size: 13px; color: #6b7280; margin-bottom: 8px;">Selected sizes:</p>
+                                    <div id="selectedSizesList" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                        <!-- Selected sizes will appear here -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -358,11 +361,11 @@ function resetSizeType() {
     document.getElementById('sizeTypeSelection').style.display = 'block';
     document.getElementById('sizeSelectionArea').style.display = 'none';
     document.querySelectorAll('.size-checkbox').forEach(cb => cb.checked = false);
-    renderSizeCards();
+    renderSelectedSizes();
     updateHiddenInputs();
 }
 
-// Toggle size when checkbox is clicked
+// Toggle size when checkbox is clicked - simplified for Add Product Modal (no color adding)
 function toggleSize(checkbox) {
     const size = checkbox.value;
     
@@ -383,7 +386,7 @@ function toggleSize(checkbox) {
         delete sizeColorConfig[size];
     }
     
-    renderSizeCards();
+    renderSelectedSizes();
     updateHiddenInputs();
 }
 
@@ -397,7 +400,7 @@ function removeSize(size) {
             cb.checked = false;
         }
     });
-    renderSizeCards();
+    renderSelectedSizes();
     updateHiddenInputs();
 }
 
@@ -423,7 +426,7 @@ function addColorToSize(size) {
     sizeColorConfig[size].colors[color] = 0;
     sizeColorConfig[size].colorOrder.push(color);
     input.value = '';
-    renderSizeCards();
+    renderSelectedSizes();
     updateHiddenInputs();
 }
 
@@ -431,7 +434,7 @@ function removeColorFromSize(size, color) {
     if (sizeColorConfig[size] && sizeColorConfig[size].colors[color]) {
         delete sizeColorConfig[size].colors[color];
         sizeColorConfig[size].colorOrder = sizeColorConfig[size].colorOrder.filter(c => c !== color);
-        renderSizeCards();
+        renderSelectedSizes();
         updateHiddenInputs();
     }
 }
@@ -447,123 +450,32 @@ function resetColorsForSize(size) {
     if (sizeColorConfig[size]) {
         sizeColorConfig[size].colors = {};
         sizeColorConfig[size].colorOrder = [];
-        renderSizeCards();
+        renderSelectedSizes();
         updateHiddenInputs();
     }
 }
 
-function renderSizeCards() {
-    const container = document.getElementById('sizesContainer');
+function renderSelectedSizes() {
+    const container = document.getElementById('selectedSizesList');
     if (!container) return;
     
     if (sizeOrder.length === 0) {
-        container.innerHTML = '<p style="color: #9ca3af; font-size: 14px; text-align: center; padding: 20px;">Select sizes above to add them.</p>';
+        container.innerHTML = '<span style="color: #9ca3af; font-size: 13px;">No sizes selected</span>';
         return;
     }
     
     let html = '';
-    
     for (let i = 0; i < sizeOrder.length; i++) {
         const size = sizeOrder[i];
         const sizeEscaped = size.replace(/'/g, "\\'");
-        const config = sizeColorConfig[size] || { colors: {}, colorOrder: [] };
-        const colors = config.colorOrder || [];
-        
-        // Build colors display
-        let colorsDisplayHtml = '';
-        if (colors.length > 0) {
-            let colorTagsHtml = '';
-            for (let j = 0; j < colors.length; j++) {
-                const color = colors[j];
-                const colorEscaped = color.replace(/'/g, "\\'");
-                const quantity = config.colors[color] || 0;
-                colorTagsHtml += `
-                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: #ede9fe; color: #5b21b6; border-radius: 16px; font-size: 12px; font-weight: 500;">
-                        ${color} (${quantity})
-                        <button type="button" onclick="removeColorFromSize('${sizeEscaped}', '${colorEscaped}')" 
-                            style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #5b21b6;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        </button>
-                    </span>
-                `;
-            }
-            colorsDisplayHtml = `
-                <div style="margin-top: 12px;">
-                    <p style="font-size: 12px; color: #6b7280; margin-bottom: 8px;">Colors for ${size}:</p>
-                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                        ${colorTagsHtml}
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Build quantity table if colors exist
-        let quantityTableHtml = '';
-        if (colors.length > 0) {
-            let rowsHtml = '';
-            for (let j = 0; j < colors.length; j++) {
-                const color = colors[j];
-                const colorEscaped = color.replace(/'/g, "\\'");
-                const quantity = config.colors[color] || 0;
-                rowsHtml += `
-                    <tr>
-                        <td style="padding: 8px; font-size: 13px; color: #374151; border-bottom: 1px solid #f1f5f9;">${color}</td>
-                        <td style="padding: 8px; text-align: center; border-bottom: 1px solid #f1f5f9;">
-                            <input type="number" min="0" value="${quantity}" 
-                                onchange="updateSizeColorQuantity('${sizeEscaped}', '${colorEscaped}', this.value)"
-                                style="width: 80px; padding: 6px; border: 2px solid #e2e8f0; border-radius: 4px; text-align: center; font-size: 13px;">
-                        </td>
-                    </tr>
-                `;
-            }
-            quantityTableHtml = `
-                <div style="background: white; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0; margin-top: 12px;">
-                    <p style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 10px;">Set Quantity for Each Color:</p>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                <th style="text-align: left; padding: 8px; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e2e8f0;">Color</th>
-                                <th style="text-align: center; padding: 8px; font-size: 12px; color: #6b7280; border-bottom: 1px solid #e2e8f0;">Quantity</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${rowsHtml}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-        }
-        
         html += `
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-                <span style="font-size: 16px; font-weight: 600; color: #1e293b;">Size: ${size}</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: #dbeafe; color: #1e40af; border-radius: 16px; font-size: 13px; font-weight: 500;">
+                ${size}
                 <button type="button" onclick="removeSize('${sizeEscaped}')" 
-                    style="background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 500;">
-                    Remove
+                    style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #1e40af;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
-            </div>
-            
-            <!-- Add Color Input -->
-            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                <input type="text" id="colorInput-${size}" placeholder="Add color for ${size} (e.g., Red, Blue)" 
-                    style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 13px;"
-                    onkeypress="if(event.key==='Enter'){event.preventDefault(); addColorToSize('${sizeEscaped}');}">
-                <button type="button" onclick="addColorToSize('${sizeEscaped}')" 
-                    style="padding: 8px 16px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">
-                    Add Color
-                </button>
-                ${colors.length > 0 ? `
-                <button type="button" onclick="resetColorsForSize('${sizeEscaped}')" 
-                    style="padding: 8px 12px; background: #fee2e2; color: #dc2626; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;">
-                    Reset Colors
-                </button>
-                ` : ''}
-            </div>
-            
-            ${colorsDisplayHtml}
-            ${quantityTableHtml}
-        </div>
+            </span>
         `;
     }
     
@@ -607,7 +519,7 @@ function resetAddProductForm() {
     document.getElementById('simpleQuantitySection').style.display = 'none';
     document.getElementById('simpleQuantity').value = '0';
     document.querySelectorAll('.size-checkbox').forEach(cb => cb.checked = false);
-    renderSizeCards();
+    renderSelectedSizes();
     updateHiddenInputs();
 }
 
@@ -618,10 +530,10 @@ closeAddProductModal = function() {
     resetAddProductForm();
 };
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener("DOMContentLoaded", function () {
     loadCategories();
     loadFilterCategories();
-    renderSizeCards();
+    renderSelectedSizes();
     updateHiddenInputs();
 });
 
@@ -712,18 +624,18 @@ function handleAddImageSelection(event) {
     }
 }
 
-// Show invalid message function
+// Show invalid message function - Fixed to use invalidMessage
 function showInvalidMessage(message) {
-    const errorMessage = document.getElementById("errorMessage");
-    if (errorMessage) {
-        const errorText = errorMessage.querySelector(".error-text");
-        if (errorText) {
-            errorText.textContent = message;
+    const invalidMessageDiv = document.getElementById("invalidMessage");
+    if (invalidMessageDiv) {
+        const invalidTextSpan = invalidMessageDiv.querySelector(".invalid-text");
+        if (invalidTextSpan) {
+            invalidTextSpan.textContent = message;
         }
-        errorMessage.style.display = "block";
+        invalidMessageDiv.style.display = "block";
         
         setTimeout(() => {
-            errorMessage.style.display = "none";
+            invalidMessageDiv.style.display = "none";
         }, 3000);
     }
 }
