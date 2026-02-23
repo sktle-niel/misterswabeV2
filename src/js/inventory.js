@@ -241,22 +241,6 @@ function showActionsMenu(event, sku) {
   menu.style.minWidth = "120px";
   menu.style.padding = "var(--spacing-xs) 0";
 
-  // Edit option
-  const editOption = document.createElement("div");
-  editOption.style.padding = "var(--spacing-sm) var(--spacing-md)";
-  editOption.style.cursor = "pointer";
-  editOption.style.display = "flex";
-  editOption.style.alignItems = "center";
-  editOption.style.gap = "var(--spacing-sm)";
-  editOption.style.color = "var(--text-primary)";
-  editOption.style.fontSize = "0.875rem";
-  editOption.innerHTML =
-    '<span style="background: white; border-radius: 2px; display: inline-block; padding: 2px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></span> Edit';
-  editOption.addEventListener("click", () => {
-    menu.remove();
-    openEditProductModal(sku);
-  });
-
   // Summary option
   const summaryOption = document.createElement("div");
   summaryOption.style.padding = "var(--spacing-sm) var(--spacing-md)";
@@ -271,6 +255,22 @@ function showActionsMenu(event, sku) {
   summaryOption.addEventListener("click", () => {
     menu.remove();
     openSummaryModal(sku);
+  });
+
+  // Edit option
+  const editOption = document.createElement("div");
+  editOption.style.padding = "var(--spacing-sm) var(--spacing-md)";
+  editOption.style.cursor = "pointer";
+  editOption.style.display = "flex";
+  editOption.style.alignItems = "center";
+  editOption.style.gap = "var(--spacing-sm)";
+  editOption.style.color = "var(--text-primary)";
+  editOption.style.fontSize = "0.875rem";
+  editOption.innerHTML =
+    '<span style="background: white; border-radius: 2px; display: inline-block; padding: 2px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></span> Edit';
+  editOption.addEventListener("click", () => {
+    menu.remove();
+    openEditProductModal(sku);
   });
 
   // Generate option
@@ -313,8 +313,9 @@ function showActionsMenu(event, sku) {
     document.getElementById("deleteModalOverlay").style.display = "flex";
   });
 
-  menu.appendChild(editOption);
+  // Add options in order: Summary, Edit, Generate, Delete
   menu.appendChild(summaryOption);
+  menu.appendChild(editOption);
   menu.appendChild(generateOption);
   menu.appendChild(deleteOption);
 
