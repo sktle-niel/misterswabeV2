@@ -1,3 +1,5 @@
+<?php include __DIR__ . '/removeColorModal.php'; ?>
+
 <!-- Add Quantity Modal -->
 <div class="modal-overlay" id="addQuantityModalOverlay" onclick="closeAddQuantityModalOnOverlay(event)" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; justify-content: center; align-items: center; z-index: 10000;">
     <div class="modal-content" style="max-width: 600px; width: 90%; background: white; border-radius: 16px; padding: 0; position: relative; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
@@ -166,6 +168,8 @@ function renderSizeColorInputs(sizes) {
     // Check if color_variants exist (new format with variant SKUs)
     let colorsHtml = '';
     const colorVariants = sizeData.color_variants || [];
+    const isSimple = sizeData.isSimpleProduct || sizeData.size === '';
+    const containerId = isSimple ? 'colors-simple' : 'colors-' + sizeData.size.replace(/\s/g, '-');
     
     if (colorVariants.length > 0) {
       // Use color variants with their own SKUs
@@ -176,13 +180,19 @@ function renderSizeColorInputs(sizes) {
             <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${variant.color}</span>
             <input type="number" 
                    class="color-quantity-input" 
-                   data-size="${sizeData.size}" 
+                   data-size="${isSimple ? '' : sizeData.size}" 
                    data-color="${variant.color}"
                    data-sku="${variant.sku}"
                    min="0" 
                    value="${qty}"
                    placeholder="Qty"
                    style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+            <button type="button" 
+                    onclick="removeColor('${isSimple ? '' : sizeData.size}', '${variant.color.replace(/'/g, "\\'")}', '${variant.sku}', ${isSimple})"
+                    style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+                    title="Remove color">
+              ✕
+            </button>
           </div>
         `;
       });
@@ -191,19 +201,28 @@ function renderSizeColorInputs(sizes) {
       Object.keys(existingColors).forEach(color => {
         const qty = existingColors[color] || 0;
         // Generate variant SKU for old format
-        const variantSku = sizeData.sku + '-' + color.substring(0, 3).toUpperCase();
+        const colorCode = color.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const variantSku = isSimple 
+          ? sizeData.sku + '-' + colorCode 
+          : sizeData.sku + '-' + sizeData.size + '-' + colorCode;
         colorsHtml += `
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${color}</span>
             <input type="number" 
                    class="color-quantity-input" 
-                   data-size="${sizeData.size}" 
+                   data-size="${isSimple ? '' : sizeData.size}" 
                    data-color="${color}"
                    data-sku="${variantSku}"
                    min="0" 
                    value="${qty}"
                    placeholder="Qty"
                    style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+            <button type="button" 
+                    onclick="removeColor('${isSimple ? '' : sizeData.size}', '${color.replace(/'/g, "\\'")}', '${variantSku}', ${isSimple})"
+                    style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+                    title="Remove color">
+              ✕
+            </button>
           </div>
         `;
       });
@@ -216,7 +235,6 @@ function renderSizeColorInputs(sizes) {
     
     if (sizeData.isSimpleProduct) {
       // Simple product - show color inputs (same as products with sizes)
-      // Use an empty string as the "size" key for simple products
       const simpleSizeKey = '';
       
       sizeContent = `
@@ -297,8 +315,10 @@ function addColorForSimpleProduct() {
     }
   }
   
-  // Use base SKU
+  // Use base SKU and create proper variant SKU: baseSku-COLORCODE (for simple products)
   const baseSku = window.currentBaseSku;
+  const colorCode = colorName.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const variantSku = baseSku + '-' + colorCode;
   
   // Add new color input with empty size key for simple products
   const newColorDiv = document.createElement('div');
@@ -313,12 +333,18 @@ function addColorForSimpleProduct() {
            class="color-quantity-input" 
            data-size="" 
            data-color="${colorName}"
-           data-sku="${baseSku}"
+           data-sku="${variantSku}"
            data-new="true"
            min="0" 
            value="0"
            placeholder="Qty"
            style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+    <button type="button" 
+            onclick="removeColor('', '${colorName.replace(/'/g, "\\'")}', '${variantSku}', true)"
+            style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+            title="Remove color">
+      ✕
+    </button>
   `;
   
   colorsContainer.appendChild(newColorDiv);
@@ -365,8 +391,10 @@ function addColorForSize(size, sku) {
     }
   }
   
-  // Use the base SKU stored globally (not the size-specific SKU)
+  // Use the base SKU stored globally and create proper variant SKU: baseSku-SIZE-COLORCODE
   const baseSku = window.currentBaseSku || sku;
+  const colorCode = colorName.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const variantSku = baseSku + '-' + size + '-' + colorCode;
   
   // Add new color input
   const newColorDiv = document.createElement('div');
@@ -381,12 +409,18 @@ function addColorForSize(size, sku) {
            class="color-quantity-input" 
            data-size="${size}" 
            data-color="${colorName}"
-           data-sku="${baseSku}"
+           data-sku="${variantSku}"
            data-new="true"
            min="0" 
            value="0"
            placeholder="Qty"
            style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+    <button type="button" 
+            onclick="removeColor('${size}', '${colorName.replace(/'/g, "\\'")}', '${variantSku}', false)"
+            style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+            title="Remove color">
+      ✕
+    </button>
   `;
   
   colorsContainer.appendChild(newColorDiv);
@@ -397,6 +431,69 @@ function addColorForSize(size, sku) {
   qtyInput.addEventListener('input', function() {
     updateSizeTotal(size);
   });
+}
+
+// Store pending color removal info
+let pendingColorRemoval = null;
+
+function removeColor(size, color, sku, isSimple) {
+  // Store the pending removal info
+  pendingColorRemoval = { size, color, sku, isSimple };
+  
+  // Show custom modal
+  const modal = document.getElementById('removeColorModalOverlay');
+  const colorNameSpan = document.getElementById('removeColorName');
+  colorNameSpan.textContent = color;
+  modal.style.display = 'flex';
+}
+
+function closeRemoveColorModal() {
+  const modal = document.getElementById('removeColorModalOverlay');
+  modal.style.display = 'none';
+  pendingColorRemoval = null;
+}
+
+function confirmRemoveColor() {
+  if (!pendingColorRemoval) return;
+  
+  const { size, color, sku, isSimple } = pendingColorRemoval;
+  const baseSku = window.currentBaseSku;
+  
+  // Close modal first
+  closeRemoveColorModal();
+  
+  fetch("../../back-end/update/removeColor.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "baseSku=" + encodeURIComponent(baseSku) + 
+          "&size=" + encodeURIComponent(size) + 
+          "&color=" + encodeURIComponent(color),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        // Show success message
+        const successMessage = document.getElementById("successMessage");
+        const successText = successMessage.querySelector(".success-text");
+        successText.textContent = "Color Removed Successfully!";
+        successMessage.style.display = "block";
+
+        setTimeout(() => {
+          successMessage.style.display = "none";
+        }, 3000);
+        
+        // Reload the modal to show updated colors
+        fetchProductSizes(baseSku);
+      } else {
+        showInvalidMessage("Error: " + (data.message || "Unknown error"));
+      }
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+      showInvalidMessage("Error removing color");
+    });
 }
 
 function updateSizeTotal(size) {
@@ -428,11 +525,11 @@ function addQuantity() {
   
   // Check if there are sizes defined
   if (sizesEmptyState.style.display === "block") {
-    showInvalidMessage("This product has no sizes defined. Please add sizes to the product first.");
+    showInvalidMessage("This product has no sizes defined. Please add first.");
     return;
   }
   
-  // Check if there was an error loading sizes
+  // Check if sizes to the product there was an error loading sizes
   if (sizesErrorState.style.display === "block") {
     showInvalidMessage("Failed to load product sizes. Please try again.");
     return;

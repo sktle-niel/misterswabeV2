@@ -18,7 +18,7 @@ function fetchHomeProducts() {
             }
 
             $adjustedImages = array_map(function($img) {
-                return '../../../' . $img; // From public/customer/pages/ to uploads/
+                return '../../../uploads/' . $img; // From public/customer/pages/ to uploads/
             }, $images);
 
             // Decode colors JSON

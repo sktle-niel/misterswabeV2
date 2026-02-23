@@ -18,14 +18,7 @@ function addProduct($data) {
     $id = str_pad(mt_rand(0, 9999999), 7, '0', STR_PAD_LEFT);
 
     // Sanitize inputs
-    $name = mysqli_real_escape_string($conn, $data['name']);    
-    
-    // Check if product with same name already exists
-    $checkNameSql = "SELECT id, name FROM inventory WHERE LOWER(name) = LOWER('$name')";
-    $nameResult = $conn->query($checkNameSql);
-    if ($nameResult && $nameResult->num_rows > 0) {
-        return ['success' => false, 'message' => 'A product with this name already exists. Please use a different name or edit the existing product.'];
-    }
+    $name = mysqli_real_escape_string($conn, $data['name']);
     
     // Handle category - store the name directly
     $category = mysqli_real_escape_string($conn, $data['category']);
@@ -73,91 +66,28 @@ function addProduct($data) {
             }
             $sizeQuantities[$size] = $sizeTotal;
         }
+    } else {
+        // Simple product (no sizes) - check for simple quantity
+        $simpleQty = isset($_POST['simpleQuantity']) ? intval($_POST['simpleQuantity']) : 0;
+        $stock = $simpleQty;
     }
     
-    // Handle simple product quantity (no sizes)
-    $simpleProductQuantity = isset($_POST['simpleProductQuantity']) ? intval($_POST['simpleProductQuantity']) : 0;
-    if (empty($sizeData) && $simpleProductQuantity > 0) {
-        $stock = $simpleProductQuantity;
-        $sizeQuantities[''] = $simpleProductQuantity;
-        $sizeString = 'Simple Product';
-    }
+    // Generate SKU using utility function - no size in base SKU
+    $sku = generateSKU($name, $category, $price, $sizeData, $allColors);
     
-    // Create size string for display
-    if (!isset($sizeString)) {
-        $sizeString = !empty($sizeData) ? implode(', ', $sizeData) : 'N/A';
-    }
+    // Check if SKU already exists
+    $checkStmt = $conn->prepare("SELECT id FROM inventory WHERE sku = ?");
+    $checkStmt->bind_param("s", $sku);
+    $checkStmt->execute();
+    $checkResult = $checkStmt->get_result();
     
-    // Create color JSON for storage
-    $colorJson = json_encode(!empty($allColors) ? $allColors : []);
-    
-    // Store the size-color-quantity matrix as JSON
-    $sizeColorQuantitiesJson = json_encode($sizeColorQuantities);
-    
-    // Generate SKU automatically
-    $sku = generateSKU($name, $category, $data['price'], $sizeData, $allColors);
-    
-    // Check if SKU already exists (very unlikely with timestamp, but just in case)
-    $checkSql = "SELECT id FROM inventory WHERE sku = '$sku'";
-    $result = $conn->query($checkSql);
-    if ($result && $result->num_rows > 0) {
-        // If somehow SKU exists, add additional random digits
-        $sku .= '-' . mt_rand(10, 99);
+    // If SKU exists, generate a new one
+    if ($checkResult->num_rows > 0) {
+        $sku = generateSKU($name, $category, $price, $sizeData, $allColors);
     }
-
-    // Handle image uploads
-    $images = [];
-    if (isset($_FILES['productImages']) && is_array($_FILES['productImages']['name'])) {
-        $fileCount = count($_FILES['productImages']['name']);
-        for ($i = 0; $i < $fileCount; $i++) {
-            $error = $_FILES['productImages']['error'][$i];
-            if ($error === UPLOAD_ERR_OK) {
-                // Validate file size (4MB max)
-                $fileSize = $_FILES['productImages']['size'][$i];
-                if ($fileSize > 4 * 1024 * 1024) {
-                    return ['success' => false, 'message' => 'Image file size exceeds 4MB limit'];
-                }
-
-                // Validate file type
-                $type = $_FILES['productImages']['type'][$i];
-                $allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-                if (!in_array($type, $allowedTypes)) {
-                    return ['success' => false, 'message' => 'Invalid image file type. Only PNG and JPG are allowed.'];
-                }
-
-                // Generate unique filename
-                $filename_original = $_FILES['productImages']['name'][$i];
-                $extension = pathinfo($filename_original, PATHINFO_EXTENSION);
-                $filename = uniqid() . '.' . $extension;
-                $uploadPath = '../../uploads/' . $filename;
-
-                // Ensure uploads directory exists and is writable
-                $uploadDir = dirname($uploadPath);
-                if (!is_dir($uploadDir)) {
-                    if (!mkdir($uploadDir, 0755, true)) {
-                        return ['success' => false, 'message' => 'Failed to create upload directory'];
-                    }
-                }
-
-                // Move uploaded file
-                $tmpName = $_FILES['productImages']['tmp_name'][$i];
-                if (move_uploaded_file($tmpName, $uploadPath)) {
-                    $images[] = 'uploads/' . $filename;
-                } else {
-                    return ['success' => false, 'message' => 'Failed to upload image'];
-                }
-            } elseif ($error !== UPLOAD_ERR_NO_FILE) {
-                return ['success' => false, 'message' => 'Upload error: ' . $error];
-            }
-        }
-    }
-
-    // If no images uploaded, use default or empty array
-    if (empty($images)) {
-        $images[] = 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90';
-    }
-
-    // Determine status based on stock
+    $checkStmt->close();
+    
+    // Determine product status
     if ($stock == 0) {
         $status = 'Out of Stock';
     } elseif ($stock <= 10) {
@@ -165,37 +95,73 @@ function addProduct($data) {
     } else {
         $status = 'In Stock';
     }
-
-    // Insert query - now includes size_color_quantities field
+    
+    // Handle size string for database
+    $sizeString = '';
+    if (!empty($sizeData)) {
+        $sizeString = implode(',', $sizeData);
+    } elseif (isset($_POST['noSizeColorRequired']) && $_POST['noSizeColorRequired'] === 'on') {
+        $sizeString = 'Simple Product';
+    }
+    
+    // Handle images
+    $images = [];
+    if (isset($_FILES['productImages']) && !empty($_FILES['productImages']['name'][0])) {
+        $uploadDir = '../../uploads/';
+        
+        foreach ($_FILES['productImages']['name'] as $key => $fileName) {
+            if ($_FILES['productImages']['error'][$key] === UPLOAD_ERR_OK) {
+                $fileExt = pathinfo($fileName, PATHINFO_EXTENSION);
+                $newFileName = uniqid() . '.' . $fileExt;
+                $targetPath = $uploadDir . $newFileName;
+                
+                if (move_uploaded_file($_FILES['productImages']['tmp_name'][$key], $targetPath)) {
+                    $images[] = $newFileName;
+                }
+            }
+        }
+    }
+    
     $imagesJson = json_encode($images);
-    $sizeQuantitiesJson = json_encode($sizeQuantities); // For backward compatibility
+    $sizeQuantitiesJson = json_encode($sizeQuantities);
+    $sizeColorQuantitiesJson = json_encode($sizeColorQuantities);
+    $colorJson = json_encode(!empty($allColors) ? $allColors : []);
     
     // Check if size_color_quantities column exists, if not create it
     $checkColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'size_color_quantities'");
     if (!$checkColumn || $checkColumn->num_rows == 0) {
-        // Create the column if it doesn't exist
         $conn->query("ALTER TABLE inventory ADD COLUMN size_color_quantities JSON NULL");
     }
     
-    // Check if size_quantities column exists, if not create it
-    $checkSizeQtyColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'size_quantities'");
-    if (!$checkSizeQtyColumn || $checkSizeQtyColumn->num_rows == 0) {
-        // Create the column if it doesn't exist
-        $conn->query("ALTER TABLE inventory ADD COLUMN size_quantities JSON NULL");
+    // Check if variant_skus column exists
+    $checkVariantColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'variant_skus'");
+    if (!$checkVariantColumn || $checkVariantColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN variant_skus JSON NULL");
     }
     
-    // Check if color column exists, if not create it
-    $checkColorColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
-    if (!$checkColorColumn || $checkColorColumn->num_rows == 0) {
-        // Create the column if it doesn't exist
-        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
+    // Generate variant SKUs for each size and color combination
+    // Variant SKU format: baseSku-SIZE-COLORCODE (e.g., SHO-NIK-A1B2-43-RED)
+    $variantSkus = [];
+    if (!empty($sizeColorQuantities) && is_array($sizeColorQuantities)) {
+        foreach ($sizeColorQuantities as $size => $colors) {
+            if (is_array($colors)) {
+                foreach ($colors as $color => $qty) {
+                    // Create variant SKU: baseSku-SIZE-COLORCODE
+                    $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color));
+                    $variantSku = $sku . '-' . $size . '-' . $colorCode;
+                    $variantKey = $size . '-' . $color;
+                    $variantSkus[$variantKey] = $variantSku;
+                }
+            }
+        }
     }
+    $variantSkusJson = json_encode($variantSkus);
     
-    $sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, color, images, status)
-            VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$colorJson', '$imagesJson', '$status')";
+    $sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, color, images, status, variant_skus)
+            VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$colorJson', '$imagesJson', '$status', '$variantSkusJson')";
 
     if ($conn->query($sql) === TRUE) {
-        return ['success' => true, 'message' => 'Product added successfully', 'id' => $id, 'sku' => $sku, 'images' => $images, 'stock' => $stock, 'size_quantities' => $sizeQuantities, 'size_color_quantities' => $sizeColorQuantities, 'all_colors' => $allColors];
+        return ['success' => true, 'message' => 'Product added successfully', 'id' => $id, 'sku' => $sku, 'images' => $images, 'stock' => $stock, 'size_quantities' => $sizeQuantities, 'size_color_quantities' => $sizeColorQuantities, 'all_colors' => $allColors, 'variant_skus' => $variantSkus];
     } else {
         error_log('Database error: ' . $conn->error);
         error_log('SQL: ' . $sql);

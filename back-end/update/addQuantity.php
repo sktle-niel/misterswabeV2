@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $sku = $_POST['sku'] ?? '';
 $amount = (int)($_POST['amount'] ?? 0);
 $color = $_POST['color'] ?? '';
+$size = $_POST['size'] ?? '';
 
 if (empty($sku) || $amount < 0) {
     echo json_encode(['success' => false, 'message' => 'Invalid SKU or amount']);
@@ -22,62 +23,67 @@ if (empty($color)) {
     exit;
 }
 
-// Extract size from the POST data (the frontend sends it)
-// For simple products, size can be empty string
-$size = $_POST['size'] ?? '';
-
 try {
-    // Include database connection
     include '../../config/connection.php';
 
-    // Find the base SKU - try exact match first, then try to find by pattern
     $baseSku = $sku;
     
-    // First check if the exact SKU exists
+    // First check if exact SKU exists
     $checkStmt = $conn->prepare("SELECT sku FROM inventory WHERE sku = ?");
     $checkStmt->bind_param("s", $sku);
     $checkStmt->execute();
     $checkResult = $checkStmt->get_result();
     
     if ($checkResult->num_rows > 0) {
-        // Exact SKU found - this is the base SKU
         $baseSku = $sku;
     } else {
-        // SKU not found exactly, try to find base SKU by pattern
-        // Try removing size and color suffix (last 2 parts after splitting by -)
-        $skuParts = explode('-', $sku);
-        if (count($skuParts) >= 3) {
-            // Try different combinations to find base SKU
-            $foundBase = false;
-            for ($i = count($skuParts) - 1; $i >= 1; $i--) {
-                $potentialBase = implode('-', array_slice($skuParts, 0, $i));
-                $checkStmt2 = $conn->prepare("SELECT sku FROM inventory WHERE sku = ?");
-                $checkStmt2->bind_param("s", $potentialBase);
-                $checkStmt2->execute();
-                $checkResult2 = $checkStmt2->get_result();
-                
-                if ($checkResult2->num_rows > 0) {
-                    $baseSku = $potentialBase;
-                    $foundBase = true;
-                    $checkStmt2->close();
-                    break;
-                }
-                $checkStmt2->close();
-            }
-            
-            if (!$foundBase) {
-                // Use the first part as fallback (for very short SKUs)
-                $baseSku = $skuParts[0];
+        // SKU not found exactly - use size parameter to determine extraction method
+        if (empty($size)) {
+            // Simple product - remove only last part (color code)
+            $skuParts = explode('-', $sku);
+            if (count($skuParts) >= 2) {
+                $potentialBase = implode('-', array_slice($skuParts, 0, -1));
+            } else {
+                $potentialBase = $sku;
             }
         } else {
-            // Single part SKU - use as base
-            $baseSku = $sku;
+            // Product with sizes - remove last 2 parts (size and color code)
+            $skuParts = explode('-', $sku);
+            if (count($skuParts) >= 3) {
+                $potentialBase = implode('-', array_slice($skuParts, 0, -2));
+            } else {
+                $potentialBase = $sku;
+            }
         }
+        
+        // Check if potential base SKU exists
+        $checkStmt2 = $conn->prepare("SELECT sku FROM inventory WHERE sku = ?");
+        $checkStmt2->bind_param("s", $potentialBase);
+        $checkStmt2->execute();
+        $checkResult2 = $checkStmt2->get_result();
+        
+        if ($checkResult2->num_rows > 0) {
+            $baseSku = $potentialBase;
+        } else if (empty($size)) {
+            // Try fallback for simple products
+            $skuParts = explode('-', $sku);
+            $potentialBase2 = implode('-', array_slice($skuParts, 0, -2));
+            $checkStmt3 = $conn->prepare("SELECT sku FROM inventory WHERE sku = ?");
+            $checkStmt3->bind_param("s", $potentialBase2);
+            $checkStmt3->execute();
+            $checkResult3 = $checkStmt3->get_result();
+            
+            if ($checkResult3->num_rows > 0) {
+                $baseSku = $potentialBase2;
+            }
+            $checkStmt3->close();
+        }
+        $checkStmt2->close();
     }
     $checkStmt->close();
 
-    // Fetch current product data
-    $stmt = $conn->prepare("SELECT name, category, size, size_quantities, size_color_quantities, color FROM inventory WHERE sku = ?");
+    // Fetch current product data including variant_skus
+    $stmt = $conn->prepare("SELECT name, category, size, size_quantities, size_color_quantities, color, variant_skus FROM inventory WHERE sku = ?");
     $stmt->bind_param("s", $baseSku);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -89,32 +95,23 @@ try {
 
     $row = $result->fetch_assoc();
     
-    // Get product details
-    $productName = $row['name'];
-    $productCategory = $row['category'];
-    $productSize = $row['size'];
-    
-    // Get existing data
     $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
     $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
     $existingColors = json_decode($row['color'] ?? '[]', true);
+    $variantSkus = json_decode($row['variant_skus'] ?? '{}', true);
     
-    // Initialize arrays if null
     if (!is_array($sizeColorQuantities)) $sizeColorQuantities = [];
     if (!is_array($sizeQuantities)) $sizeQuantities = [];
     if (!is_array($existingColors)) $existingColors = [];
+    if (!is_array($variantSkus)) $variantSkus = [];
     
-    // Check if this is a new color for this size
-    $isNewColor = !isset($sizeColorQuantities[$size]) || !isset($sizeColorQuantities[$size][$color]);
-    
-    // Update size_color_quantities with color-specific quantity
-    // Structure: { "Size": { "Color": quantity } }
+    // Update size_color_quantities
     if (!isset($sizeColorQuantities[$size])) {
         $sizeColorQuantities[$size] = [];
     }
     $sizeColorQuantities[$size][$color] = $amount;
     
-    // Update size_quantities (sum of all colors per size)
+    // Update size_quantities
     $sizeQuantities[$size] = array_sum($sizeColorQuantities[$size]);
     
     // Collect all unique colors
@@ -123,7 +120,6 @@ try {
         $allColors[] = $color;
     }
     
-    // Add any new colors from size_color_quantities
     foreach ($sizeColorQuantities as $sizeKey => $colors) {
         foreach (array_keys($colors) as $colorKey) {
             if (!in_array($colorKey, $allColors)) {
@@ -132,13 +128,12 @@ try {
         }
     }
 
-    // Calculate new total stock from size_color_quantities
+    // Calculate new total stock
     $newStock = 0;
     foreach ($sizeColorQuantities as $sizeKey => $colors) {
         $newStock += array_sum($colors);
     }
 
-    // Determine new status based on stock
     if ($newStock == 0) {
         $newStatus = 'Out of Stock';
     } elseif ($newStock <= 10) {
@@ -147,22 +142,40 @@ try {
         $newStatus = 'In Stock';
     }
 
-    // Encode back to JSON
     $updatedSizeColorQuantities = json_encode($sizeColorQuantities);
     $updatedSizeQuantities = json_encode($sizeQuantities);
     $updatedColors = json_encode($allColors);
 
-    // Generate the variant SKU for this size-color combination (color first, then size)
-    // For simple products (empty size), just use base SKU with color
-    if (!empty($size)) {
-        $variantSku = $baseSku . '-' . strtoupper(substr($color, 0, 3)) . '-' . $size;
+    // Generate variant SKUs
+    $variantSkus = [];
+    foreach ($sizeColorQuantities as $sizeKey => $colors) {
+        if (is_array($colors)) {
+            foreach ($colors as $colorKey => $qty) {
+                $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $colorKey));
+                // For simple products (empty sizeKey), use baseSku-COLORCODE format
+                // For products with sizes, use baseSku-SIZE-COLORCODE format
+                if (empty($sizeKey)) {
+                    $variantSkuKey = $colorKey;
+                    $variantSkus[$variantSkuKey] = $baseSku . '-' . $colorCode;
+                } else {
+                    $variantSkuKey = $sizeKey . '-' . $colorKey;
+                    $variantSkus[$variantSkuKey] = $baseSku . '-' . $sizeKey . '-' . $colorCode;
+                }
+            }
+        }
+    }
+    $updatedVariantSkus = json_encode($variantSkus);
+
+    $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color));
+    // For simple products (empty size), use baseSku-COLORCODE format
+    if (empty($size)) {
+        $variantSku = $baseSku . '-' . $colorCode;
     } else {
-        $variantSku = $baseSku . '-' . strtoupper(substr($color, 0, 3));
+        $variantSku = $baseSku . '-' . $size . '-' . $colorCode;
     }
 
-    // Update the database with size_quantities, size_color_quantities, color, stock, and status
-    $updateStmt = $conn->prepare("UPDATE inventory SET size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
-    $updateStmt->bind_param("sssiss", $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
+    $updateStmt = $conn->prepare("UPDATE inventory SET variant_skus = ?, size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
+    $updateStmt->bind_param("ssssiss", $updatedVariantSkus, $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
 
     if ($updateStmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Quantity added successfully', 'variantSku' => $variantSku, 'baseSku' => $baseSku]);

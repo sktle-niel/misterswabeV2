@@ -7,7 +7,7 @@
 if (!function_exists('generateSKU')) {
     /**
      * Generate SKU automatically based on product details
-     * Format: CATEGORY-NAME-SIZE-PRICE-TIMESTAMP
+     * Format: CATEGORY-NAME-UNIQUEID (no size or color in base SKU)
      * 
      * @param string $name Product name
      * @param string $category Category name
@@ -33,34 +33,8 @@ if (!function_exists('generateSKU')) {
             $uniqueId .= $characters[mt_rand(0, strlen($characters) - 1)];
         }
         
-        // Add size info if available (first size only for brevity)
-        $sizeCode = '';
-        if (!empty($sizes)) {
-            if (is_array($sizes)) {
-                $firstSize = reset($sizes); // Get first size
-                $sizeCode = '-' . strtoupper($firstSize);
-            } else {
-                $sizeParts = explode(',', $sizes);
-                $firstSize = trim($sizeParts[0]);
-                $sizeCode = '-' . strtoupper($firstSize);
-            }
-        }
-        
-        // Add color info if available (first color only for brevity)
-        $colorCode = '';
-        if (!empty($colors)) {
-            if (is_array($colors)) {
-                $firstColor = reset($colors); // Get first color
-                $colorCode = '-' . strtoupper(substr($firstColor, 0, 3));
-            } else {
-                $colorParts = explode(',', $colors);
-                $firstColor = trim($colorParts[0]);
-                $colorCode = '-' . strtoupper(substr($firstColor, 0, 3));
-            }
-        }
-        
-        // Build SKU: CATEGORY-NAME-SIZE-COLOR-UNIQUEID (e.g., SHO-NIK-S-RED-A1B2)
-        $sku = $categoryCode . '-' . $nameCode . $sizeCode . $colorCode . '-' . $uniqueId;
+        // Build SKU: CATEGORY-NAME-UNIQUEID (e.g., SHO-NIK-A1B2) - no size or color in base SKU
+        $sku = $categoryCode . '-' . $nameCode . '-' . $uniqueId;
         
         return $sku;
     }
