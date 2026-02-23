@@ -4,7 +4,7 @@ include '../../config/connection.php';
 function fetchProducts() {
     global $conn;
 
-    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_color_quantities, i.color FROM inventory i ORDER BY i.id DESC";
+    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_quantities, i.size_color_quantities, i.color, i.variant_skus FROM inventory i ORDER BY i.id DESC";
     $result = $conn->query($sql);
 
     $products = [];
@@ -17,7 +17,7 @@ function fetchProducts() {
             }
 
             $adjustedImages = array_map(function($img) {
-                return '../../../' . $img; // From public/administrator/pages/ to uploads/
+                return '../../uploads/' . $img; // From public/administrator/pages/ to uploads/
             }, $images);
 
             // Calculate stock from size_color_quantities and format color display
@@ -78,8 +78,8 @@ function fetchProducts() {
                 'stock' => $dbStock,
                 'size' => $sizeValue,
                 'color' => $colorDisplay,
-                'size_quantities' => $row['size_quantities'],
-                'size_color_quantities' => $row['size_color_quantities'],
+                'size_quantities' => $row['size_quantities'] ?? null,
+                'size_color_quantities' => $row['size_color_quantities'] ?? null,
 
                 'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
                 'images' => $adjustedImages, // Keep all images with adjusted paths

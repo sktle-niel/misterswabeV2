@@ -595,7 +595,7 @@ function addProduct() {
                 : "In Stock",
           image:
             data.images && data.images.length > 0
-              ? "../../../" + data.images[0]
+              ? "../../uploads/" + data.images[0]
               : "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90",
           size: sizesInput || "N/A",
           size_quantities: data.size_quantities,

@@ -1,34 +1,88 @@
+// Store product variants data
+let productVariants = {}; // { sku: [variants] }
 let selectedBarcodes = []; // Will store objects like {sku: "ABC123", quantity: 1}
 
 function renderProducts(productsToRender) {
   const tbody = document.getElementById("products-tbody");
   tbody.innerHTML = "";
 
-  productsToRender.forEach((product) => {
-    const row = document.createElement("tr");
+  // First, fetch variants for all products
+  const variantPromises = productsToRender.map((product) => {
+    return fetchVariantsForProduct(product.sku).then((variants) => {
+      productVariants[product.sku] = variants;
+      return { product, variants };
+    });
+  });
 
-    const stockClass =
-      product.stock === 0
-        ? "var(--accent-danger)"
-        : product.stock <= 10
-          ? "var(--accent-warning)"
-          : "";
-    const statusClass =
-      product.status === "In Stock"
-        ? "badge-success"
-        : product.status === "Low Stock"
-          ? "badge-warning"
-          : "badge-danger";
-
-    row.innerHTML = `
+  Promise.all(variantPromises).then((results) => {
+    results.forEach(({ product, variants }) => {
+      // If product has variants, show each variant as a row
+      if (variants && variants.length > 0) {
+        variants.forEach((variant, vIndex) => {
+          const row = document.createElement("tr");
+          const needsRestock = variant.stock === 0;
+          
+          row.innerHTML = `
             <td>
                 <img src="${product.image}" alt="${product.name}" style="width: 50px; height: 50px; border-radius: var(--radius-md); object-fit: cover; cursor: pointer;" onclick="previewImage('${product.image}')">
             </td>
             <td style="font-weight: 600; color: var(--text-primary);">${product.name}</td>
-            <td style="color: var(--text-muted); font-size: 0.875rem;"><canvas id="barcode-${product.sku}" style="width: 250px; height: 60px;"></canvas></td>
+            <td style="color: var(--text-muted); font-size: 0.875rem;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <canvas id="barcode-${product.sku}-${vIndex}" style="width: 200px; height: 50px;"></canvas>
+                    <span style="font-size: 10px; color: #6b7280;">
+                        ${variant.size ? 'Size: ' + variant.size : 'Simple'} ${variant.color ? '| Color: ' + variant.color : ''}
+                    </span>
+                </div>
+            </td>
             <td><span class="badge badge-info">${product.category}</span></td>
             <td>
-                <button class="btn btn-icon btn-secondary" title="Print Barcode" onclick="printProductBarcode('${product.sku}')">
+                <button class="btn btn-icon ${isVariantSelected(product.sku, variant.sku) ? 'btn-primary' : 'btn-secondary'}" 
+                    title="${variant.size ? variant.size + (variant.color ? ' - ' + variant.color : '') : 'Simple'}" 
+                    onclick="printProductBarcode('${product.sku}', '${variant.sku}')"
+                    style="${needsRestock ? 'border: 2px solid #dc2626;' : ''}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                        <rect x="6" y="14" width="12" height="8"></rect>
+                    </svg>
+                </button>
+            </td>
+          `;
+          tbody.appendChild(row);
+          
+          // Generate barcode after row is added
+          setTimeout(() => {
+            const canvas = document.getElementById(`barcode-${product.sku}-${vIndex}`);
+            if (canvas) {
+              JsBarcode(canvas, variant.sku, {
+                format: "CODE128",
+                width: 1.5,
+                height: 40,
+                displayValue: true,
+                fontSize: 10,
+                margin: 0,
+              });
+            }
+          }, 50);
+        });
+      } else {
+        // No variants, show base product row
+        const row = document.createElement("tr");
+        
+        row.innerHTML = `
+            <td>
+                <img src="${product.image}" alt="${product.name}" style="width: 50px; height: 50px; border-radius: var(--radius-md); object-fit: cover; cursor: pointer;" onclick="previewImage('${product.image}')">
+            </td>
+            <td style="font-weight: 600; color: var(--text-primary);">${product.name}</td>
+            <td style="color: var(--text-muted); font-size: 0.875rem;">
+                <canvas id="barcode-${product.sku}-0" style="width: 200px; height: 50px;"></canvas>
+            </td>
+            <td><span class="badge badge-info">${product.category}</span></td>
+            <td>
+                <button class="btn btn-icon ${isVariantSelected(product.sku, product.sku) ? 'btn-primary' : 'btn-secondary'}" 
+                    title="Print Barcode" 
+                    onclick="printProductBarcode('${product.sku}', '${product.sku}')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="6 9 6 2 18 2 18 9"></polyline>
                         <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
@@ -37,9 +91,73 @@ function renderProducts(productsToRender) {
                 </button>
             </td>
         `;
-
-    tbody.appendChild(row);
+        tbody.appendChild(row);
+        
+        // Generate barcode after row is added
+        setTimeout(() => {
+          const canvas = document.getElementById(`barcode-${product.sku}-0`);
+          if (canvas) {
+            JsBarcode(canvas, product.sku, {
+              format: "CODE128",
+              width: 1.5,
+              height: 40,
+              displayValue: true,
+              fontSize: 10,
+              margin: 0,
+            });
+          }
+        }, 50);
+      }
+    });
   });
+}
+
+// Fetch variants for a single product
+function fetchVariantsForProduct(sku) {
+  return fetch("../../../back-end/read/getSizes.php?sku=" + encodeURIComponent(sku))
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success && data.sizes) {
+        // Flatten all variants from all sizes
+        let allVariants = [];
+        
+        data.sizes.forEach((sizeData) => {
+          if (sizeData.color_variants && sizeData.color_variants.length > 0) {
+            // Has color variants
+            sizeData.color_variants.forEach((variant) => {
+              allVariants.push({
+                sku: variant.sku,
+                size: sizeData.size,
+                color: variant.color,
+                stock: variant.quantity,
+                isSimpleProduct: sizeData.isSimpleProduct
+              });
+            });
+          } else if (sizeData.size && sizeData.size !== '') {
+            // Has size but no colors
+            allVariants.push({
+              sku: sizeData.sku,
+              size: sizeData.size,
+              color: null,
+              stock: sizeData.stock,
+              isSimpleProduct: false
+            });
+          }
+        });
+        
+        return allVariants;
+      }
+      return [];
+    })
+    .catch((error) => {
+      console.error("Error fetching variants for", sku, error);
+      return [];
+    });
+}
+
+// Check if a variant is already selected
+function isVariantSelected(baseSku, variantSku) {
+  return selectedBarcodes.some(item => item.baseSku === baseSku && item.sku === variantSku);
 }
 
 function filterProducts() {
@@ -72,14 +190,12 @@ function filterProducts() {
   }
 
   renderProducts(filteredProducts);
-  generateBarcodes(filteredProducts);
 }
 
 function clearFilters() {
   document.getElementById("search-filter").value = "";
   document.getElementById("category-filter").value = "";
   renderProducts(products);
-  generateBarcodes(products);
 }
 
 function previewImage(imageUrl) {
@@ -244,33 +360,22 @@ function printSkuBarcode() {
   printWindow.document.close();
 }
 
-function printProductBarcode(sku) {
-  const existingIndex = selectedBarcodes.findIndex((item) => item.sku === sku);
+function printProductBarcode(baseSku, variantSku) {
+  const existingIndex = selectedBarcodes.findIndex(
+    (item) => item.baseSku === baseSku && item.sku === variantSku
+  );
+  
   if (existingIndex !== -1) {
     // Remove from selected
     selectedBarcodes.splice(existingIndex, 1);
   } else {
     // Add to selected with default quantity of 1
-    selectedBarcodes.push({ sku: sku, quantity: 1 });
+    selectedBarcodes.push({ baseSku: baseSku, sku: variantSku, quantity: 1 });
   }
+  
   saveSelectedBarcodesToStorage();
   updatePrintBarcodeContainer();
-}
-
-function generateBarcodes(productsToRender) {
-  productsToRender.forEach((product) => {
-    const canvas = document.getElementById(`barcode-${product.sku}`);
-    if (canvas) {
-      JsBarcode(canvas, product.sku, {
-        format: "CODE128",
-        width: 2,
-        height: 60,
-        displayValue: true,
-        fontSize: 14,
-        margin: 0,
-      });
-    }
-  });
+  renderProducts(products); // Re-render to update button styles
 }
 
 function updatePrintBarcodeContainer() {
@@ -293,6 +398,22 @@ function updatePrintBarcodeContainer() {
     barcodeDiv.style.borderRadius = "var(--radius-md)";
     barcodeDiv.style.backgroundColor = "var(--bg-primary)";
 
+    // Variant info
+    const infoDiv = document.createElement("div");
+    infoDiv.style.marginBottom = "8px";
+    infoDiv.style.fontSize = "12px";
+    infoDiv.style.color = "var(--text-secondary)";
+    
+    // Find variant info
+    const variants = productVariants[item.baseSku] || [];
+    const variant = variants.find(v => v.sku === item.sku);
+    if (variant) {
+      infoDiv.innerHTML = `<strong>${variant.size || 'Simple'}</strong>${variant.color ? ' - ' + variant.color : ''}`;
+    } else {
+      infoDiv.textContent = "Base Product";
+    }
+    barcodeDiv.appendChild(infoDiv);
+
     // Barcode canvas
     const canvas = document.createElement("canvas");
     canvas.style.width = "180px";
@@ -302,9 +423,9 @@ function updatePrintBarcodeContainer() {
     JsBarcode(canvas, item.sku, {
       format: "CODE128",
       width: 2,
-      height: 60,
+      height: 50,
       displayValue: true,
-      fontSize: 14,
+      fontSize: 11,
       margin: 0,
     });
     barcodeDiv.appendChild(canvas);
@@ -415,12 +536,14 @@ function removeBarcode(index) {
   selectedBarcodes.splice(index, 1);
   saveSelectedBarcodesToStorage();
   updatePrintBarcodeContainer();
+  renderProducts(products); // Re-render to update button styles
 }
 
 function removeAllBarcodes() {
   selectedBarcodes = [];
   saveSelectedBarcodesToStorage();
   updatePrintBarcodeContainer();
+  renderProducts(products); // Re-render to update button styles
 }
 
 function saveSelectedBarcodesToStorage() {
@@ -457,6 +580,12 @@ function printAllSelectedBarcodes() {
           border-radius: 8px;
           background: white;
         }
+        .barcode-label {
+          font-size: 11px;
+          color: #666;
+          margin-top: 4px;
+          text-align: center;
+        }
         .barcode svg {
           width: 200px;
           height: auto;
@@ -476,6 +605,13 @@ function printAllSelectedBarcodes() {
   document.body.appendChild(tempContainer);
 
   selectedBarcodes.forEach((item) => {
+    // Get variant info
+    const variants = productVariants[item.baseSku] || [];
+    const variant = variants.find(v => v.sku === item.sku);
+    const label = variant 
+      ? `${variant.size || 'Simple'}${variant.color ? ' - ' + variant.color : ''}`
+      : 'Base Product';
+    
     // Print the specified quantity of each barcode
     for (let i = 0; i < item.quantity; i++) {
       const tempSvg = document.createElementNS(
@@ -485,13 +621,13 @@ function printAllSelectedBarcodes() {
       tempContainer.appendChild(tempSvg);
       JsBarcode(tempSvg, item.sku, {
         format: "CODE128",
-        width: 3,
-        height: 80,
+        width: 2,
+        height: 60,
         displayValue: true,
-        fontSize: 16,
-        margin: 10,
+        fontSize: 12,
+        margin: 5,
       });
-      htmlContent += `<div class="barcode-container"><div class="barcode">${tempSvg.outerHTML}</div></div>`;
+      htmlContent += `<div class="barcode-container"><div class="barcode">${tempSvg.outerHTML}</div><div class="barcode-label">${label}</div></div>`;
       tempContainer.removeChild(tempSvg);
     }
   });
@@ -535,7 +671,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   renderProducts(products);
-  generateBarcodes(products);
   updatePrintBarcodeContainer();
 
   // Add event listeners for filters

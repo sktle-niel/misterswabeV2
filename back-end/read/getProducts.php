@@ -14,7 +14,7 @@ function getProducts($category = 'all', $search = '') {
                 $images = ["https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90"];
             }
             $adjustedImages = array_map(function($img) {
-                return '../../' . $img; // From public/customer/pages/ to uploads/
+                return '../../uploads/' . $img; // From public/customer/pages/ to uploads/
             }, $images);
 
             // Decode colors JSON
