@@ -75,7 +75,7 @@ function fetchProducts() {
                 'sku' => $row['sku'],
                 'category' => $row['category'],
                 'price' => '₱' . number_format($row['price'], 2),
-                'stock' => $calculated_stock,
+                'stock' => $dbStock,
                 'size' => $sizeValue,
                 'color' => $colorDisplay,
                 'size_quantities' => $row['size_quantities'],
