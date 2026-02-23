@@ -197,17 +197,6 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
                             </div>
                         </div>
                         
-                        <!-- Simple Product Quantity (when no sizes) -->
-                        <div id="editSimpleQuantitySection" style="display: none; margin-top: 16px;">
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
-                                Product Quantity
-                            </label>
-                            <input type="number" id="editSimpleQuantity" min="0" value="0" 
-                                style="width: 200px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"
-                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
-                                onblur="this.style.borderColor='#e5e7eb';">
-                        </div>
-                        
                         <input type="hidden" id="editProductSizes" name="editProductSizes">
                     </div>
 
@@ -305,14 +294,11 @@ function resetEditSizeType() {
 function toggleEditSizeColorRequired() {
     const checkbox = document.getElementById('editNoSizeColorRequired');
     const configSection = document.getElementById('editSizeConfigSection');
-    const simpleSection = document.getElementById('editSimpleQuantitySection');
     
     if (checkbox.checked) {
         configSection.style.display = 'none';
-        simpleSection.style.display = 'block';
     } else {
         configSection.style.display = 'block';
-        simpleSection.style.display = 'none';
     }
     updateEditHiddenInputs();
 }
@@ -382,8 +368,6 @@ function resetEditForm() {
     document.getElementById('editSizeSelectionArea').style.display = 'none';
     document.getElementById('editAlphaSizesSection').style.display = 'none';
     document.getElementById('editNumericSizesSection').style.display = 'none';
-    document.getElementById('editSimpleQuantitySection').style.display = 'none';
-    document.getElementById('editSimpleQuantity').value = '0';
     document.querySelectorAll('.edit-size-checkbox').forEach(cb => cb.checked = false);
     renderEditSelectedSizes();
     updateEditHiddenInputs();
@@ -506,10 +490,6 @@ function populateEditForm(product) {
     if (isSimpleProduct) {
         document.getElementById('editNoSizeColorRequired').checked = true;
         document.getElementById('editSizeConfigSection').style.display = 'none';
-        document.getElementById('editSimpleQuantitySection').style.display = 'block';
-        
-        // Set simple quantity from stock
-        document.getElementById('editSimpleQuantity').value = product.stock || 0;
     } else {
         // Determine size type
         const numericSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47'];
@@ -681,9 +661,6 @@ function updateProduct() {
     formData.append("productSizes", selectedSizes.join(','));
     formData.append("isSimpleProduct", isSimpleProduct ? '1' : '0');
     
-    if (isSimpleProduct) {
-        formData.append("simpleQuantity", document.getElementById('editSimpleQuantity').value || 0);
-    }
 
     const imageInput = document.getElementById("editProductImages");
     if (imageInput && imageInput.files) {
