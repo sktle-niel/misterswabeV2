@@ -436,43 +436,28 @@ function previewImage(imageUrl) {
 
 function confirmDelete() {
   if (window.productToDelete) {
+    const skuToDelete = window.productToDelete;
+    
     // Send AJAX request to delete product from database
     fetch("../../back-end/delete/removeProduct.php", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: "sku=" + encodeURIComponent(window.productToDelete),
+      body: "sku=" + encodeURIComponent(skuToDelete),
     })
       .then((response) => response.json())
       .then((data) => {
         if (data.success) {
-          // Reload products from server to ensure UI is updated
-          fetch("../../../back-end/read/fetchProduct.php")
-            .then((response) => response.json())
-            .then((data) => {
-              products = data;
-              localStorage.setItem(
-                "inventoryProducts",
-                JSON.stringify(products),
-              );
-              filterProducts(); // Re-apply current filters to update the UI
-            })
-            .catch((error) => {
-              console.error("Error reloading products:", error);
-              // Fallback: remove from local array
-              const index = products.findIndex(
-                (p) => p.sku === window.productToDelete,
-              );
-              if (index !== -1) {
-                products.splice(index, 1);
-                localStorage.setItem(
-                  "inventoryProducts",
-                  JSON.stringify(products),
-                );
-                filterProducts();
-              }
-            });
+          // Remove from products array
+          const index = products.findIndex((p) => p.sku === skuToDelete);
+          if (index !== -1) {
+            products.splice(index, 1);
+            localStorage.setItem("inventoryProducts", JSON.stringify(products));
+          }
+          
+          // Re-render the table using filterProducts
+          filterProducts();
 
           // Show success message
           const successMessage = document.getElementById("successMessage");
@@ -577,11 +562,8 @@ function addProduct() {
     formData.append("sizeColorConfig", sizeColorConfigInput.value);
   }
 
-  // Get simple product quantity (for products without sizes)
-  if (noSizeColorRequired) {
-    const simpleProductQty = document.getElementById('simpleProductQuantity').value;
-    formData.append("simpleProductQuantity", simpleProductQty || 0);
-  }
+  // For products without sizes (simple products), quantity will be 0 initially
+  // Colors and quantities can be added later via the Add Quantity modal
 
   // Append image files
   for (let i = 0; i < imageFiles.length; i++) {
@@ -657,6 +639,11 @@ function openProductModal(mode) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Always clear localStorage on page load to ensure fresh data from server
+  // This prevents stale cached data from showing in the inventory table
+  // The products variable is already initialized with PHP data (from fetchProducts())
+  localStorage.removeItem("inventoryProducts");
+  
   // Load temporary changes from localStorage
   window.temporaryChanges =
     JSON.parse(localStorage.getItem("temporaryChanges")) || [];

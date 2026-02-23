@@ -483,6 +483,57 @@ function processQuantityUpdates(updates, index, submitBtn) {
     submitBtn.style.opacity = "1";
     submitBtn.style.cursor = "pointer";
     
+    // Update the local products array with new color and stock values
+    updates.forEach(update => {
+      const productIndex = products.findIndex(p => p.sku === update.sku || p.sku === window.currentBaseSku);
+      if (productIndex !== -1) {
+        const product = products[productIndex];
+        
+        // Update stock based on the amount added
+        product.stock = (parseInt(product.stock) || 0) + update.amount;
+        
+        // Update status based on new stock
+        if (product.stock === 0) {
+          product.status = 'Out of Stock';
+        } else if (product.stock <= 10) {
+          product.status = 'Low Stock';
+        } else {
+          product.status = 'In Stock';
+        }
+        
+        // Update color field if new color was added
+        if (update.isNew || !product.color.includes(update.color)) {
+          if (product.color && product.color !== "N/A") {
+            product.color = product.color + ", " + update.color;
+          } else {
+            product.color = update.color;
+          }
+        }
+        
+        // Update size_quantities if it exists
+        if (product.size_quantities) {
+          try {
+            const sizeQuantities = typeof product.size_quantities === 'string' 
+              ? JSON.parse(product.size_quantities) 
+              : product.size_quantities;
+            
+            if (!sizeQuantities[update.size]) {
+              sizeQuantities[update.size] = 0;
+            }
+            sizeQuantities[update.size] = (sizeQuantities[update.size] || 0) + update.amount;
+            product.size_quantities = sizeQuantities;
+          } catch (e) {
+            console.log("Error updating size_quantities:", e);
+          }
+        }
+        
+        products[productIndex] = product;
+      }
+    });
+    
+    // Save to localStorage and re-render the table
+    localStorage.setItem("inventoryProducts", JSON.stringify(products));
+    
     // Show success message
     const successMessage = document.getElementById("successMessage");
     const successText = successMessage.querySelector(".success-text");
@@ -494,9 +545,9 @@ function processQuantityUpdates(updates, index, submitBtn) {
     }, 3000);
 
     closeAddQuantityModal();
-
-    // Reload products to get updated stock values
-    location.reload();
+    
+    // Reload the page to get fresh data from the server
+    window.location.reload();
     return;
   }
   

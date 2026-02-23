@@ -229,23 +229,6 @@ $recentProduct = !empty($products) ? $products[0] : null;
                             </div>
                         </div>
                         
-                        <!-- Simple Product Quantity Section (when no sizes) -->
-                        <div id="simpleQuantitySection" style="display: none; margin-top: 16px;">
-                            <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
-                                Product Quantity
-                            </label>
-                            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">
-                                Enter the quantity for this product (no required sizes)
-                            </p>
-                            
-                            <!-- Simple Product Quantity Input -->
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input type="number" id="simpleProductQuantity" min="0" value="0" 
-                                    style="width: 200px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"
-                                    onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
-                                    onblur="this.style.borderColor='#e5e7eb';">
-                            </div>
-                        </div>
                         
                         <input type="hidden" id="productSizes" name="productSizes">
                         <input type="hidden" id="sizeColorConfig" name="sizeColorConfig">
@@ -348,9 +331,6 @@ async function loadFilterCategories() {
 let sizeColorConfig = {}; // Structure: { size: { colors: { colorName: quantity }, colorOrder: [] } }
 let sizeOrder = [];
 let currentSizeType = null;
-
-// Simple Product Quantity
-let simpleProductQuantity = 0;
 
 function selectSizeType(type) {
     currentSizeType = type;
@@ -496,14 +476,11 @@ function renderSelectedSizes() {
 function toggleSizeColorRequired() {
     const checkbox = document.getElementById('noSizeColorRequired');
     const configSection = document.getElementById('sizeConfigSection');
-    const simpleSection = document.getElementById('simpleQuantitySection');
     
     if (checkbox.checked) {
         configSection.style.display = 'none';
-        simpleSection.style.display = 'block';
     } else {
         configSection.style.display = 'block';
-        simpleSection.style.display = 'none';
     }
     updateHiddenInputs();
 }
@@ -521,16 +498,12 @@ function resetAddProductForm() {
     sizeOrder = [];
     sizeColorConfig = {};
     currentSizeType = null;
-    // Reset simple product quantity
-    simpleProductQuantity = 0;
     document.getElementById('noSizeColorRequired').checked = false;
     document.getElementById('sizeConfigSection').style.display = 'block';
     document.getElementById('sizeTypeSelection').style.display = 'block';
     document.getElementById('sizeSelectionArea').style.display = 'none';
     document.getElementById('alphaSizesSection').style.display = 'none';
     document.getElementById('numericSizesSection').style.display = 'none';
-    document.getElementById('simpleQuantitySection').style.display = 'none';
-    document.getElementById('simpleProductQuantity').value = '0';
     renderSelectedSizes();
     updateHiddenInputs();
 }
