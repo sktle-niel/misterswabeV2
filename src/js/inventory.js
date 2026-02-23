@@ -67,7 +67,7 @@ function renderProducts(productsToRender) {
             <td style="font-weight: 600;">${product.price}</td>
             <td style="${stockClass ? `color: ${stockClass}; font-weight: 600;` : ""}">${product.stock}</td>
             <td>${product.size || "N/A"}</td>
-            <td style="font-size: 0.875rem;">${product.color || "N/A"}</td>
+            <td style="font-size: 0.875rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${product.color || ''}">${product.color || "N/A"}</td>
             <td><span class="badge ${statusClass}">${product.status}</span></td>
             <td>
                 <div style="display: flex; gap: var(--spacing-xs);">
@@ -77,7 +77,7 @@ function renderProducts(productsToRender) {
                             <circle cx="12" cy="12" r="3"></circle>
                         </svg>
                     </button>
-                    <button class="btn btn-icon btn-secondary" title="Add Quantity" ${product.size === "N/A" ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''} onclick="${product.size !== "N/A" ? `openAddQuantityModal('${product.sku}')` : ''}">
+                    <button class="btn btn-icon btn-secondary" title="Add Quantity" onclick="openAddQuantityModal('${product.sku}')">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"></line>
                             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -257,6 +257,22 @@ function showActionsMenu(event, sku) {
     openEditProductModal(sku);
   });
 
+  // Summary option
+  const summaryOption = document.createElement("div");
+  summaryOption.style.padding = "var(--spacing-sm) var(--spacing-md)";
+  summaryOption.style.cursor = "pointer";
+  summaryOption.style.display = "flex";
+  summaryOption.style.alignItems = "center";
+  summaryOption.style.gap = "var(--spacing-sm)";
+  summaryOption.style.color = "var(--text-primary)";
+  summaryOption.style.fontSize = "0.875rem";
+  summaryOption.innerHTML =
+    '<span style="background: white; border-radius: 2px; display: inline-block; padding: 2px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span> Summary';
+  summaryOption.addEventListener("click", () => {
+    menu.remove();
+    openSummaryModal(sku);
+  });
+
   // Generate option
   const generateOption = document.createElement("div");
   generateOption.style.padding = "var(--spacing-sm) var(--spacing-md)";
@@ -298,6 +314,7 @@ function showActionsMenu(event, sku) {
   });
 
   menu.appendChild(editOption);
+  menu.appendChild(summaryOption);
   menu.appendChild(generateOption);
   menu.appendChild(deleteOption);
 
@@ -512,8 +529,6 @@ function addProduct() {
   const category = document.getElementById("productCategory").value;
   const price = document.getElementById("productPrice").value.trim();
   const sizesInput = document.getElementById("productSizes").value.trim();
-  const simpleQuantityInput = document.getElementById("simpleQuantity");
-  const simpleQuantity = simpleQuantityInput ? simpleQuantityInput.value : "0";
   const noSizeColorRequired = document.getElementById("noSizeColorRequired").checked;
   const imageFiles = document.getElementById("productImages").files;
 
@@ -527,15 +542,12 @@ function addProduct() {
   if (!noSizeColorRequired) {
     // Product has sizes - validate that sizes are selected
     if (!sizesInput || sizesInput.trim() === '') {
-      showInvalidMessage('Please select at least one size for the product. If the product has no sizes, check "No sizes (simple product)".');
+      showInvalidMessage('Please select at least one size for the product. If the product has no sizes, check "No sizes (No required sizes)".');
       return;
     }
   } else {
-    // Simple product - validate that quantity is provided
-    if (!simpleQuantity || simpleQuantity === "0" || parseInt(simpleQuantity) < 0) {
-      showInvalidMessage('Please enter a quantity for the simple product.');
-      return;
-    }
+    // Simple product - just need quantity which is handled by the input field
+    // No additional validation needed since quantity input is always present
   }
 
   // Debug: Log the sizeColorConfig before submitting
@@ -558,12 +570,17 @@ function addProduct() {
   formData.append("productCategory", category);
   formData.append("productPrice", price);
   formData.append("productSizes", sizesInput);
-  formData.append("simpleQuantity", simpleQuantity);
   formData.append("noSizeColorRequired", noSizeColorRequired ? "1" : "0");
 
-  // Get size-color configuration
+  // Get size-color configuration (for products with sizes)
   if (sizeColorConfigInput) {
     formData.append("sizeColorConfig", sizeColorConfigInput.value);
+  }
+
+  // Get simple product quantity (for products without sizes)
+  if (noSizeColorRequired) {
+    const simpleProductQty = document.getElementById('simpleProductQuantity').value;
+    formData.append("simpleProductQuantity", simpleProductQty || 0);
   }
 
   // Append image files
@@ -637,65 +654,6 @@ function openProductModal(mode) {
   if (mode === "add") {
     document.getElementById("addProductModalOverlay").style.display = "flex";
   }
-}
-
-function printSkuBarcode() {
-  const barcodeSvg = document.getElementById("barcode");
-  if (!barcodeSvg) {
-    console.error("Barcode element not found");
-    return;
-  }
-
-  const printWindow = window.open("", "_blank");
-  const barcodeHtml = barcodeSvg.outerHTML;
-
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Product Barcode</title>
-      <style>
-        body {
-          font-family: Arial, sans-serif;
-          text-align: center;
-          padding: 20px;
-          margin: 0;
-        }
-        .barcode-container {
-          display: inline-block;
-          padding: 20px;
-          border: 1px solid #ccc;
-          border-radius: 8px;
-          background: white;
-        }
-        .barcode svg {
-          width: 300px;
-          height: auto;
-          max-width: 100%;
-        }
-        @media print {
-          body { margin: 0; }
-          .barcode-container { border: none; padding: 10px; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="barcode-container">
-        <div class="barcode">${barcodeHtml}</div>
-      </div>
-      <script>
-        window.onload = function() {
-          window.print();
-          setTimeout(function() {
-            window.close();
-          }, 100);
-        }
-      </script>
-    </body>
-    </html>
-  `);
-
-  printWindow.document.close();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

@@ -11,6 +11,7 @@ include __DIR__ . '/../components/editProductModal.php';
 include __DIR__ . '/../components/deleteProductModal.php';
 include __DIR__ . '/../components/addQuantityModal.php';
 include __DIR__ . '/../components/skuModal.php';
+include __DIR__ . '/../components/summaryModal.php';
 include __DIR__ . '/../status/invalidStatus.php';
 include '../../back-end/create/addProduct.php';
 include '../../back-end/read/fetchProduct.php';
@@ -101,7 +102,7 @@ $recentProduct = !empty($products) ? $products[0] : null;
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #6b7280;">
                                 <input type="checkbox" id="noSizeColorRequired" onchange="toggleSizeColorRequired()" style="width: 16px; height: 16px; cursor: pointer;">
-                                <span>No sizes (simple product)</span>
+                                <span>No sizes (No required sizes)</span>
                             </label>
                         </div>
                         
@@ -228,15 +229,22 @@ $recentProduct = !empty($products) ? $products[0] : null;
                             </div>
                         </div>
                         
-                        <!-- Simple Product Quantity (when no sizes) -->
+                        <!-- Simple Product Quantity Section (when no sizes) -->
                         <div id="simpleQuantitySection" style="display: none; margin-top: 16px;">
                             <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
                                 Product Quantity
                             </label>
-                            <input type="number" id="simpleQuantity" min="0" value="0" 
-                                style="width: 200px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"
-                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
-                                onblur="this.style.borderColor='#e5e7eb';">
+                            <p style="font-size: 13px; color: #6b7280; margin-bottom: 16px;">
+                                Enter the quantity for this product (no required sizes)
+                            </p>
+                            
+                            <!-- Simple Product Quantity Input -->
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="number" id="simpleProductQuantity" min="0" value="0" 
+                                    style="width: 200px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px;"
+                                    onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                    onblur="this.style.borderColor='#e5e7eb';">
+                            </div>
                         </div>
                         
                         <input type="hidden" id="productSizes" name="productSizes">
@@ -340,6 +348,9 @@ async function loadFilterCategories() {
 let sizeColorConfig = {}; // Structure: { size: { colors: { colorName: quantity }, colorOrder: [] } }
 let sizeOrder = [];
 let currentSizeType = null;
+
+// Simple Product Quantity
+let simpleProductQuantity = 0;
 
 function selectSizeType(type) {
     currentSizeType = type;
@@ -510,6 +521,8 @@ function resetAddProductForm() {
     sizeOrder = [];
     sizeColorConfig = {};
     currentSizeType = null;
+    // Reset simple product quantity
+    simpleProductQuantity = 0;
     document.getElementById('noSizeColorRequired').checked = false;
     document.getElementById('sizeConfigSection').style.display = 'block';
     document.getElementById('sizeTypeSelection').style.display = 'block';
@@ -517,8 +530,7 @@ function resetAddProductForm() {
     document.getElementById('alphaSizesSection').style.display = 'none';
     document.getElementById('numericSizesSection').style.display = 'none';
     document.getElementById('simpleQuantitySection').style.display = 'none';
-    document.getElementById('simpleQuantity').value = '0';
-    document.querySelectorAll('.size-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('simpleProductQuantity').value = '0';
     renderSelectedSizes();
     updateHiddenInputs();
 }
@@ -684,7 +696,7 @@ function showInvalidMessage(message) {
                             <th>Price</th>
                             <th>Stock</th>
                             <th>Size</th>
-                            <th>Color</th>
+                            <th style="max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Color</th>
                             <th>Status</th>
 
                             <th>Actions</th>

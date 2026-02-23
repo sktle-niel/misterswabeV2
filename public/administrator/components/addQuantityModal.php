@@ -101,7 +101,8 @@ function openAddQuantityModal(sku) {
   document.getElementById("sizesErrorState").style.display = "none";
   document.getElementById("sizesEmptyState").style.display = "none";
   
-  // Fetch sizes for this product
+  // Store baseSku globally for use in addColorForSize
+  window.currentBaseSku = baseSku;
   fetchProductSizes(baseSku);
 }
 
@@ -162,13 +163,35 @@ function renderSizeColorInputs(sizes) {
       existingColors = sizeData.size_quantities;
     }
     
-    const colorNames = Object.keys(existingColors);
-    
-    // Create HTML for existing colors with quantities
+    // Check if color_variants exist (new format with variant SKUs)
     let colorsHtml = '';
-    if (colorNames.length > 0) {
-      colorNames.forEach(color => {
+    const colorVariants = sizeData.color_variants || [];
+    
+    if (colorVariants.length > 0) {
+      // Use color variants with their own SKUs
+      colorVariants.forEach(variant => {
+        const qty = variant.quantity || 0;
+        colorsHtml += `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+            <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${variant.color}</span>
+            <input type="number" 
+                   class="color-quantity-input" 
+                   data-size="${sizeData.size}" 
+                   data-color="${variant.color}"
+                   data-sku="${variant.sku}"
+                   min="0" 
+                   value="${qty}"
+                   placeholder="Qty"
+                   style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+          </div>
+        `;
+      });
+    } else if (Object.keys(existingColors).length > 0) {
+      // Fallback to old format without color variants
+      Object.keys(existingColors).forEach(color => {
         const qty = existingColors[color] || 0;
+        // Generate variant SKU for old format
+        const variantSku = sizeData.sku + '-' + color.substring(0, 3).toUpperCase();
         colorsHtml += `
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${color}</span>
@@ -176,7 +199,7 @@ function renderSizeColorInputs(sizes) {
                    class="color-quantity-input" 
                    data-size="${sizeData.size}" 
                    data-color="${color}"
-                   data-sku="${sizeData.sku}"
+                   data-sku="${variantSku}"
                    min="0" 
                    value="${qty}"
                    placeholder="Qty"
@@ -186,35 +209,140 @@ function renderSizeColorInputs(sizes) {
       });
     }
     
+    // Determine label based on whether it's a simple product
+    const sizeLabel = sizeData.isSimpleProduct ? sizeData.productName : `Size: ${sizeData.size}`;
+    
+    let sizeContent = '';
+    
+    if (sizeData.isSimpleProduct) {
+      // Simple product - show color inputs (same as products with sizes)
+      // Use an empty string as the "size" key for simple products
+      const simpleSizeKey = '';
+      
+      sizeContent = `
+        <!-- Existing Colors -->
+        <div id="colors-simple" style="margin-bottom: 12px;">
+          ${colorsHtml}
+        </div>
+        
+        <!-- Add New Color -->
+        <div style="display: flex; gap: 8px;">
+          <input type="text" 
+                 id="newColor-simple"
+                 placeholder="Add new color" 
+                 style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+          <button type="button" 
+                  onclick="addColorForSimpleProduct()"
+                  style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+            Add Color
+          </button>
+        </div>
+      `;
+    } else {
+      // Product with sizes - show size/color inputs
+      sizeContent = `
+        <!-- Existing Colors -->
+        <div id="colors-${sizeData.size.replace(/\s/g, '-')}" style="margin-bottom: 12px;">
+          ${colorsHtml}
+        </div>
+        
+        <!-- Add New Color -->
+        <div style="display: flex; gap: 8px;">
+          <input type="text" 
+                 id="newColor-${sizeData.size.replace(/\s/g, '-')}"
+                 placeholder="Add new color" 
+                 style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+          <button type="button" 
+                  onclick="addColorForSize('${sizeData.size}', '${sizeData.sku}')"
+                  style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+            Add Color
+          </button>
+        </div>
+      `;
+    }
+    
     sizeDiv.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <label style="font-weight: 600; font-size: 14px; color: #374151;">
-          Size: ${sizeData.size}
+          ${sizeLabel}
         </label>
-        <span style="font-size: 12px; color: #6b7280;">Total: <span id="total-${sizeData.size.replace(/\s/g, '-')}">${Object.values(existingColors).reduce((a, b) => a + b, 0)}</span></span>
+        <span style="font-size: 12px; color: #6b7280;">
+          ${sizeData.isSimpleProduct ? 'Total: <span id="total-simple">' + Object.values(existingColors).reduce((a, b) => a + b, 0) + '</span>' : 'Total: <span id="total-' + sizeData.size.replace(/\s/g, '-') + '">' + Object.values(existingColors).reduce((a, b) => a + b, 0) + '</span>'}
+        </span>
       </div>
-      
-      <!-- Existing Colors -->
-      <div id="colors-${sizeData.size.replace(/\s/g, '-')}" style="margin-bottom: 12px;">
-        ${colorsHtml}
-      </div>
-      
-      <!-- Add New Color -->
-      <div style="display: flex; gap: 8px;">
-        <input type="text" 
-               id="newColor-${sizeData.size.replace(/\s/g, '-')}"
-               placeholder="Add new color" 
-               style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
-        <button type="button" 
-                onclick="addColorForSize('${sizeData.size}', '${sizeData.sku}')"
-                style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
-          Add Color
-        </button>
-      </div>
+      ${sizeContent}
     `;
     
     container.appendChild(sizeDiv);
   });
+}
+
+function addColorForSimpleProduct() {
+  const inputId = 'newColor-simple';
+  const colorInput = document.getElementById(inputId);
+  const colorName = colorInput.value.trim();
+  
+  if (!colorName) {
+    showInvalidMessage('Please enter a color name');
+    return;
+  }
+  
+  // Check if color already exists
+  const colorsContainer = document.getElementById('colors-simple');
+  const existingInputs = colorsContainer.querySelectorAll('.color-quantity-input');
+  for (let input of existingInputs) {
+    if (input.dataset.color.toLowerCase() === colorName.toLowerCase()) {
+      showInvalidMessage('This color already exists');
+      return;
+    }
+  }
+  
+  // Use base SKU
+  const baseSku = window.currentBaseSku;
+  
+  // Add new color input with empty size key for simple products
+  const newColorDiv = document.createElement('div');
+  newColorDiv.style.display = 'flex';
+  newColorDiv.style.alignItems = 'center';
+  newColorDiv.style.gap = '8px';
+  newColorDiv.style.marginBottom = '8px';
+  
+  newColorDiv.innerHTML = `
+    <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${colorName}</span>
+    <input type="number" 
+           class="color-quantity-input" 
+           data-size="" 
+           data-color="${colorName}"
+           data-sku="${baseSku}"
+           data-new="true"
+           min="0" 
+           value="0"
+           placeholder="Qty"
+           style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+  `;
+  
+  colorsContainer.appendChild(newColorDiv);
+  colorInput.value = '';
+  
+  // Add event listener to update total
+  const qtyInput = newColorDiv.querySelector('.color-quantity-input');
+  qtyInput.addEventListener('input', function() {
+    updateSimpleProductTotal();
+  });
+}
+
+function updateSimpleProductTotal() {
+  const container = document.getElementById('colors-simple');
+  const inputs = container.querySelectorAll('.color-quantity-input');
+  let total = 0;
+  inputs.forEach(input => {
+    total += parseInt(input.value) || 0;
+  });
+  
+  const totalSpan = document.getElementById('total-simple');
+  if (totalSpan) {
+    totalSpan.textContent = total;
+  }
 }
 
 function addColorForSize(size, sku) {
@@ -237,6 +365,9 @@ function addColorForSize(size, sku) {
     }
   }
   
+  // Use the base SKU stored globally (not the size-specific SKU)
+  const baseSku = window.currentBaseSku || sku;
+  
   // Add new color input
   const newColorDiv = document.createElement('div');
   newColorDiv.style.display = 'flex';
@@ -250,7 +381,7 @@ function addColorForSize(size, sku) {
            class="color-quantity-input" 
            data-size="${size}" 
            data-color="${colorName}"
-           data-sku="${sku}"
+           data-sku="${baseSku}"
            data-new="true"
            min="0" 
            value="0"
@@ -313,7 +444,8 @@ function addQuantity() {
     return;
   }
 
-  const quantityInputs = document.querySelectorAll(".color-quantity-input");
+  // Get both color-quantity inputs and simple-quantity inputs
+  const quantityInputs = document.querySelectorAll(".color-quantity-input, .simple-quantity-input");
   const updates = [];
   
   quantityInputs.forEach((input) => {

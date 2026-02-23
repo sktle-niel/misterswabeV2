@@ -78,6 +78,8 @@ function fetchProducts() {
                 'stock' => $calculated_stock,
                 'size' => $sizeValue,
                 'color' => $colorDisplay,
+                'size_quantities' => $row['size_quantities'],
+                'size_color_quantities' => $row['size_color_quantities'],
 
                 'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
                 'images' => $adjustedImages, // Keep all images with adjusted paths
