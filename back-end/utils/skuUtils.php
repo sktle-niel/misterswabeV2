@@ -15,7 +15,7 @@ if (!function_exists('generateSKU')) {
      * @param mixed $sizes Product sizes (string or array)
      * @return string Generated SKU
      */
-    function generateSKU($name, $category, $price, $sizes) {
+    function generateSKU($name, $category, $price, $sizes, $colors = null) {
         // Category code (first 3 letters, uppercase)
         $categoryCode = strtoupper(substr($category, 0, 3));
         
@@ -26,8 +26,41 @@ if (!function_exists('generateSKU')) {
             $nameCode .= strtoupper(substr($nameWords[$i], 0, 3));
         }
         
-        // Build shortest SKU: CATEGORY-NAME
-        $sku = $categoryCode . '-' . $nameCode;
+        // Generate a short unique ID (4 random alphanumeric characters for short barcode)
+        $characters = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $uniqueId = '';
+        for ($i = 0; $i < 4; $i++) {
+            $uniqueId .= $characters[mt_rand(0, strlen($characters) - 1)];
+        }
+        
+        // Add size info if available (first size only for brevity)
+        $sizeCode = '';
+        if (!empty($sizes)) {
+            if (is_array($sizes)) {
+                $firstSize = reset($sizes); // Get first size
+                $sizeCode = '-' . strtoupper($firstSize);
+            } else {
+                $sizeParts = explode(',', $sizes);
+                $firstSize = trim($sizeParts[0]);
+                $sizeCode = '-' . strtoupper($firstSize);
+            }
+        }
+        
+        // Add color info if available (first color only for brevity)
+        $colorCode = '';
+        if (!empty($colors)) {
+            if (is_array($colors)) {
+                $firstColor = reset($colors); // Get first color
+                $colorCode = '-' . strtoupper(substr($firstColor, 0, 3));
+            } else {
+                $colorParts = explode(',', $colors);
+                $firstColor = trim($colorParts[0]);
+                $colorCode = '-' . strtoupper(substr($firstColor, 0, 3));
+            }
+        }
+        
+        // Build SKU: CATEGORY-NAME-SIZE-COLOR-UNIQUEID (e.g., SHO-NIK-S-RED-A1B2)
+        $sku = $categoryCode . '-' . $nameCode . $sizeCode . $colorCode . '-' . $uniqueId;
         
         return $sku;
     }

@@ -18,7 +18,7 @@ function addProduct($data) {
     $id = str_pad(mt_rand(0, 9999999), 7, '0', STR_PAD_LEFT);
 
     // Sanitize inputs
-    $name = mysqli_real_escape_string($conn, $data['name']);
+    $name = mysqli_real_escape_string($conn, $data['name']);    
     
     // Handle category - store the name directly
     $category = mysqli_real_escape_string($conn, $data['category']);
@@ -68,14 +68,18 @@ function addProduct($data) {
         }
     }
     
-    // Handle simple product quantity (no sizes/colors)
-    $simpleQuantity = isset($_POST['simpleQuantity']) ? intval($_POST['simpleQuantity']) : 0;
-    if (empty($sizeData) && $simpleQuantity > 0) {
-        $stock = $simpleQuantity;
+    // Handle simple product quantity (no sizes)
+    $simpleProductQuantity = isset($_POST['simpleProductQuantity']) ? intval($_POST['simpleProductQuantity']) : 0;
+    if (empty($sizeData) && $simpleProductQuantity > 0) {
+        $stock = $simpleProductQuantity;
+        $sizeQuantities[''] = $simpleProductQuantity;
+        $sizeString = 'Simple Product';
     }
     
     // Create size string for display
-    $sizeString = !empty($sizeData) ? implode(', ', $sizeData) : 'N/A';
+    if (!isset($sizeString)) {
+        $sizeString = !empty($sizeData) ? implode(', ', $sizeData) : 'N/A';
+    }
     
     // Create color JSON for storage
     $colorJson = json_encode(!empty($allColors) ? $allColors : []);
@@ -84,7 +88,7 @@ function addProduct($data) {
     $sizeColorQuantitiesJson = json_encode($sizeColorQuantities);
     
     // Generate SKU automatically
-    $sku = generateSKU($name, $category, $data['price'], $sizeData);
+    $sku = generateSKU($name, $category, $data['price'], $sizeData, $allColors);
     
     // Check if SKU already exists (very unlikely with timestamp, but just in case)
     $checkSql = "SELECT id FROM inventory WHERE sku = '$sku'";
@@ -171,6 +175,13 @@ function addProduct($data) {
     if (!$checkSizeQtyColumn || $checkSizeQtyColumn->num_rows == 0) {
         // Create the column if it doesn't exist
         $conn->query("ALTER TABLE inventory ADD COLUMN size_quantities JSON NULL");
+    }
+    
+    // Check if color column exists, if not create it
+    $checkColorColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
+    if (!$checkColorColumn || $checkColorColumn->num_rows == 0) {
+        // Create the column if it doesn't exist
+        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
     }
     
     $sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, color, images, status)
