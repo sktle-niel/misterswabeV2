@@ -27,7 +27,9 @@ function addProduct($data) {
 
     // Handle new size-color configuration
     $sizeColorConfigJson = isset($_POST['sizeColorConfig']) ? $_POST['sizeColorConfig'] : '{}';
+    error_log('DEBUG addProduct - sizeColorConfigJson: ' . $sizeColorConfigJson);
     $sizeColorConfig = json_decode($sizeColorConfigJson, true);
+    error_log('DEBUG addProduct - sizeColorConfig: ' . print_r($sizeColorConfig, true));
     
     // Handle sizes
     $sizesInput = isset($_POST['productSizes']) ? trim($_POST['productSizes']) : '';
@@ -39,32 +41,23 @@ function addProduct($data) {
     
     // Calculate total stock and build size-color-quantity matrix
     $stock = 0;
-    $sizeQuantities = []; // For backward compatibility - sum quantities per size
-    $allColors = []; // Collect all unique colors
-    $sizeColorQuantities = []; // New matrix structure
+    $sizeColorQuantities = []; // Matrix structure: { "Size": { "Color": quantity } }
     
     if (!empty($sizeColorConfig) && is_array($sizeColorConfig)) {
         foreach ($sizeColorConfig as $size => $config) {
-            $sizeTotal = 0;
+            // Initialize the size in the matrix (even if no colors yet)
+            if (!isset($sizeColorQuantities[$size])) {
+                $sizeColorQuantities[$size] = [];
+            }
+            
+            // Process colors if they exist
             if (isset($config['colors']) && is_array($config['colors'])) {
                 foreach ($config['colors'] as $color => $quantity) {
                     $qty = intval($quantity);
                     $stock += $qty;
-                    $sizeTotal += $qty;
-                    
-                    // Build size-color matrix
-                    if (!isset($sizeColorQuantities[$size])) {
-                        $sizeColorQuantities[$size] = [];
-                    }
                     $sizeColorQuantities[$size][$color] = $qty;
-                    
-                    // Collect unique colors
-                    if (!in_array($color, $allColors)) {
-                        $allColors[] = $color;
-                    }
                 }
             }
-            $sizeQuantities[$size] = $sizeTotal;
         }
     } else {
         // Simple product (no sizes) - check for simple quantity
@@ -72,8 +65,8 @@ function addProduct($data) {
         $stock = $simpleQty;
     }
     
-    // Generate SKU using utility function - no size in base SKU
-    $sku = generateSKU($name, $category, $price, $sizeData, $allColors);
+// Generate SKU using utility function - no size in base SKU
+    $sku = generateSKU($name, $category, $price, $sizeData, []);
     
     // Check if SKU already exists
     $checkStmt = $conn->prepare("SELECT id FROM inventory WHERE sku = ?");
@@ -83,7 +76,7 @@ function addProduct($data) {
     
     // If SKU exists, generate a new one
     if ($checkResult->num_rows > 0) {
-        $sku = generateSKU($name, $category, $price, $sizeData, $allColors);
+        $sku = generateSKU($name, $category, $price, $sizeData, []);
     }
     $checkStmt->close();
     
@@ -122,10 +115,33 @@ function addProduct($data) {
         }
     }
     
-    $imagesJson = json_encode($images);
-    $sizeQuantitiesJson = json_encode($sizeQuantities);
+$imagesJson = json_encode($images);
     $sizeColorQuantitiesJson = json_encode($sizeColorQuantities);
-    $colorJson = json_encode(!empty($allColors) ? $allColors : []);
+    
+    // Build size_quantities for backward compatibility (sum of colors per size)
+    $sizeQuantities = [];
+    if (!empty($sizeColorQuantities) && is_array($sizeColorQuantities)) {
+        foreach ($sizeColorQuantities as $size => $colors) {
+            if (is_array($colors)) {
+                $sizeQuantities[$size] = array_sum($colors);
+            }
+        }
+    }
+    $sizeQuantitiesJson = json_encode($sizeQuantities);
+    
+    error_log('DEBUG addProduct - Final sizeColorQuantitiesJson: ' . $sizeColorQuantitiesJson);
+    
+// Check if size column exists, if not create it
+    $checkSizeColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'size'");
+    if (!$checkSizeColumn || $checkSizeColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN size VARCHAR(255) DEFAULT NULL");
+    }
+    
+    // Check if size_quantities column exists, if not create it
+    $checkSizeQtyColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'size_quantities'");
+    if (!$checkSizeQtyColumn || $checkSizeQtyColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN size_quantities JSON DEFAULT NULL");
+    }
     
     // Check if size_color_quantities column exists, if not create it
     $checkColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'size_color_quantities'");
@@ -139,11 +155,27 @@ function addProduct($data) {
         $conn->query("ALTER TABLE inventory ADD COLUMN variant_skus JSON NULL");
     }
     
-    // Check if color column exists, if not create it
-    $checkColorColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
-    if (!$checkColorColumn || $checkColorColumn->num_rows == 0) {
-        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
+    // Check if information column exists, if not create it
+    $checkInfoColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'information'");
+    if (!$checkInfoColumn || $checkInfoColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN information JSON DEFAULT NULL");
     }
+    
+    // Build information JSON (for simple products like bags)
+    $productInformation = [];
+    if (isset($_POST['productBrand']) && !empty($_POST['productBrand'])) {
+        $productInformation['brand'] = mysqli_real_escape_string($conn, $_POST['productBrand']);
+    }
+    if (isset($_POST['productMaterial']) && !empty($_POST['productMaterial'])) {
+        $productInformation['material'] = mysqli_real_escape_string($conn, $_POST['productMaterial']);
+    }
+    if (isset($_POST['productDimensions']) && !empty($_POST['productDimensions'])) {
+        $productInformation['dimensions'] = mysqli_real_escape_string($conn, $_POST['productDimensions']);
+    }
+    if (isset($_POST['productInfo']) && !empty($_POST['productInfo'])) {
+        $productInformation['product_info'] = mysqli_real_escape_string($conn, $_POST['productInfo']);
+    }
+    $informationJson = json_encode(!empty($productInformation) ? $productInformation : null);
     
     // Generate variant SKUs for each size and color combination
     // Variant SKU format: baseSku-SIZE-COLORCODE (e.g., SHO-NIK-A1B2-43-RED)
@@ -163,11 +195,11 @@ function addProduct($data) {
     }
     $variantSkusJson = json_encode($variantSkus);
     
-    $sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, color, images, status, variant_skus)
-            VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$colorJson', '$imagesJson', '$status', '$variantSkusJson')";
+$sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, images, status, variant_skus, information)
+            VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$imagesJson', '$status', '$variantSkusJson', '$informationJson')";
 
     if ($conn->query($sql) === TRUE) {
-        return ['success' => true, 'message' => 'Product added successfully', 'id' => $id, 'sku' => $sku, 'images' => $images, 'stock' => $stock, 'size_quantities' => $sizeQuantities, 'size_color_quantities' => $sizeColorQuantities, 'all_colors' => $allColors, 'variant_skus' => $variantSkus];
+        return ['success' => true, 'message' => 'Product added successfully', 'id' => $id, 'sku' => $sku, 'images' => $images, 'stock' => $stock, 'size_color_quantities' => $sizeColorQuantities, 'variant_skus' => $variantSkus];
     } else {
         error_log('Database error: ' . $conn->error);
         error_log('SQL: ' . $sql);

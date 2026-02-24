@@ -115,7 +115,7 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
                             onblur="this.style.borderColor='#e5e7eb';">
                     </div>
 
-                    <!-- Size Configuration Section - Same as Add Product Modal (without color adding) -->
+                        <!-- Size Configuration Section - Same as Add Product Modal (without color adding) -->
                     <div style="grid-column: span 2;">
                         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
                             <label style="display: block; font-weight: 600; font-size: 14px; color: #374151;">
@@ -250,6 +250,68 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
                             </div>
                         </div>
                         
+                        <!-- Simple Product Section (when No sizes is checked) -->
+                        <div id="editSimpleProductSection" style="display: none; margin-top: 16px;">
+                            <div style="display: grid; gap: 16px;">
+                                <!-- Product Information Section -->
+                                <div style="border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                                    <label style="display: block; margin-bottom: 12px; font-weight: 600; font-size: 14px; color: #374151;">
+                                        Product Information <span style="color: #6b7280; font-weight: normal;">(Optional - for products like bags)</span>
+                                    </label>
+                                    
+                                    <div style="display: grid; gap: 12px;">
+                                        <!-- Brand -->
+                                        <div>
+                                            <label for="editProductBrand" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Brand
+                                            </label>
+                                            <input type="text" id="editProductBrand" name="editProductBrand" 
+                                                placeholder="e.g., Nike, Adidas, Hermes"
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';">
+                                        </div>
+                                        
+                                        <!-- Material -->
+                                        <div>
+                                            <label for="editProductMaterial" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Material
+                                            </label>
+                                            <input type="text" id="editProductMaterial" name="editProductMaterial" 
+                                                placeholder="e.g., Leather, Canvas, Polyester"
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';">
+                                        </div>
+                                        
+                                        <!-- Dimensions -->
+                                        <div>
+                                            <label for="editProductDimensions" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Dimensions
+                                            </label>
+                                            <input type="text" id="editProductDimensions" name="editProductDimensions" 
+                                                placeholder="e.g., 30cm x 20cm x 10cm"
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';">
+                                        </div>
+                                        
+                                        <!-- Additional Info -->
+                                        <div>
+                                            <label for="editProductInfo" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Additional Information
+                                            </label>
+                                            <textarea id="editProductInfo" name="editProductInfo" rows="3"
+                                                placeholder="Any additional product details, features, or specifications..."
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box; resize: vertical;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <input type="hidden" id="editProductSizes" name="editProductSizes">
                     </div>
 
@@ -350,11 +412,18 @@ function resetEditSizeType() {
 function toggleEditSizeColorRequired() {
     const checkbox = document.getElementById('editNoSizeColorRequired');
     const configSection = document.getElementById('editSizeConfigSection');
+    const simpleProductSection = document.getElementById('editSimpleProductSection');
     
     if (checkbox.checked) {
         configSection.style.display = 'none';
+        if (simpleProductSection) {
+            simpleProductSection.style.display = 'block';
+        }
     } else {
         configSection.style.display = 'block';
+        if (simpleProductSection) {
+            simpleProductSection.style.display = 'none';
+        }
     }
     updateEditHiddenInputs();
 }
@@ -551,6 +620,22 @@ function resetEditForm() {
     document.getElementById('editSizeSelectionArea').style.display = 'none';
     document.getElementById('editAlphaSizesSection').style.display = 'none';
     document.getElementById('editNumericSizesSection').style.display = 'none';
+    
+    // Reset simple product section
+    const simpleProductSection = document.getElementById('editSimpleProductSection');
+    if (simpleProductSection) {
+        simpleProductSection.style.display = 'none';
+    }
+    // Clear product info fields
+    const brandInput = document.getElementById('editProductBrand');
+    const materialInput = document.getElementById('editProductMaterial');
+    const dimensionsInput = document.getElementById('editProductDimensions');
+    const infoInput = document.getElementById('editProductInfo');
+    if (brandInput) brandInput.value = '';
+    if (materialInput) materialInput.value = '';
+    if (dimensionsInput) dimensionsInput.value = '';
+    if (infoInput) infoInput.value = '';
+    
     document.querySelectorAll('.edit-size-checkbox').forEach(cb => cb.checked = false);
     renderEditSelectedSizes();
     updateEditHiddenInputs();
@@ -679,9 +764,38 @@ function populateEditForm(product) {
     // Determine if it's a simple product (no sizes)
     const isSimpleProduct = !product.size || product.size === 'N/A' || currentSizes.length === 0;
     
-    if (isSimpleProduct) {
+if (isSimpleProduct) {
         document.getElementById('editNoSizeColorRequired').checked = true;
         document.getElementById('editSizeConfigSection').style.display = 'none';
+        // Show simple product section
+        const simpleProductSection = document.getElementById('editSimpleProductSection');
+        if (simpleProductSection) {
+            simpleProductSection.style.display = 'block';
+        }
+        
+        // Populate existing product information from 'information' column
+        if (product.information && product.information !== 'null') {
+            try {
+                const productInfo = typeof product.information === 'string' 
+                    ? JSON.parse(product.information) 
+                    : product.information;
+                
+                if (productInfo && productInfo.brand) {
+                    document.getElementById('editProductBrand').value = productInfo.brand;
+                }
+                if (productInfo && productInfo.material) {
+                    document.getElementById('editProductMaterial').value = productInfo.material;
+                }
+                if (productInfo && productInfo.dimensions) {
+                    document.getElementById('editProductDimensions').value = productInfo.dimensions;
+                }
+                if (productInfo && productInfo.product_info) {
+                    document.getElementById('editProductInfo').value = productInfo.product_info;
+                }
+            } catch (e) {
+                console.log('Error parsing product information:', e);
+            }
+        }
     } else {
         // Determine size type
         const numericSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47'];
@@ -851,8 +965,28 @@ function updateProduct() {
     formData.append("category", category);
     formData.append("price", price);
     formData.append("productSizes", selectedSizes.join(','));
-    formData.append("isSimpleProduct", isSimpleProduct ? '1' : '0');
+formData.append("isSimpleProduct", isSimpleProduct ? '1' : '0');
     
+    // Add product information fields for simple products
+    if (isSimpleProduct) {
+        const brandInput = document.getElementById("editProductBrand");
+        const materialInput = document.getElementById("editProductMaterial");
+        const dimensionsInput = document.getElementById("editProductDimensions");
+        const infoInput = document.getElementById("editProductInfo");
+        
+        if (brandInput && brandInput.value) {
+            formData.append("productBrand", brandInput.value);
+        }
+        if (materialInput && materialInput.value) {
+            formData.append("productMaterial", materialInput.value);
+        }
+        if (dimensionsInput && dimensionsInput.value) {
+            formData.append("productDimensions", dimensionsInput.value);
+        }
+        if (infoInput && infoInput.value) {
+            formData.append("productInfo", infoInput.value);
+        }
+    }
 
     const imageInput = document.getElementById("editProductImages");
     if (imageInput && imageInput.files) {

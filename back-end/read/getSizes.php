@@ -45,10 +45,10 @@ try {
         $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
         $variantSkus = json_decode($row['variant_skus'] ?? '{}', true);
         
-        // Initialize variant_skus array if null
-        if (!is_array($variantSkus)) {
-            $variantSkus = [];
-        }
+        // Initialize arrays if null
+        if (!is_array($sizeQuantities)) $sizeQuantities = [];
+        if (!is_array($sizeColorQuantities)) $sizeColorQuantities = [];
+        if (!is_array($variantSkus)) $variantSkus = [];
         
         $hasSizes = !empty($sizeString) && $sizeString !== 'Simple Product';
 
@@ -102,19 +102,45 @@ try {
             exit;
         }
 
-        // If size is a comma-separated string, split it
-        if (strpos($sizeString, ',') !== false) {
-            $sizeArray = array_map('trim', explode(',', $sizeString));
-            $sizes = [];
-            foreach ($sizeArray as $size) {
+        // Get all sizes to process - from size_color_quantities first, then from size column
+        $allSizes = [];
+        
+        // First, get sizes from size_color_quantities keys
+        $sizesFromColorConfig = array_keys($sizeColorQuantities);
+        
+        // Get sizes from size column (comma-separated string)
+        $sizesFromSizeColumn = [];
+        if (!empty($sizeString)) {
+            if (strpos($sizeString, ',') !== false) {
+                $sizesFromSizeColumn = array_map('trim', explode(',', $sizeString));
+            } else {
+                $sizesFromSizeColumn = [$sizeString];
+            }
+        }
+        
+        // Merge sizes from both sources, avoiding duplicates
+        $allSizes = array_unique(array_merge($sizesFromColorConfig, $sizesFromSizeColumn));
+        
+        // Build the sizes array - ensure size is always a string
+        $sizes = [];
+        foreach ($allSizes as $size) {
+            // Ensure size is a string
+            $size = (string)$size;
+            
+            // Get colors for this size from size_color_quantities
+            $colors = isset($sizeColorQuantities[$size]) ? $sizeColorQuantities[$size] : [];
+            
+            // If there are colors, sum them; otherwise fall back to size_quantities
+            if (is_array($colors) && count($colors) > 0) {
+                $quantity = array_sum($colors);
+            } else {
                 $quantity = (int)($sizeQuantities[$size] ?? 0);
-                
-                // Get colors for this size from size_color_quantities
-                $colors = isset($sizeColorQuantities[$size]) ? $sizeColorQuantities[$size] : [];
-                
-                // Create a variant entry for each color with unique SKU using stored variant_skus
-                // Variant SKU format: baseSku-SIZE-COLORCODE (includes size)
-                $colorVariants = [];
+            }
+            
+            // Create a variant entry for each color with unique SKU using stored variant_skus
+            // Variant SKU format: baseSku-SIZE-COLORCODE (includes size)
+            $colorVariants = [];
+            if (is_array($colors)) {
                 foreach ($colors as $color => $colorQty) {
                     // Use stored variant SKU if available, otherwise generate (baseSku-SIZE-COLORCODE)
                     $variantKey = $size . '-' . $color;
@@ -125,40 +151,15 @@ try {
                         'quantity' => $colorQty
                     ];
                 }
-                
-                $sizes[] = [
-                    'sku' => $baseSku,
-                    'size' => $size,
-                    'stock' => $quantity,
-                    'size_quantities' => $colors,
-                    'color_variants' => $colorVariants
-                ];
-            }
-        } else {
-            // Single size
-            $quantity = (int)($sizeQuantities[$sizeString] ?? 0);
-            
-            $colors = isset($sizeColorQuantities[$sizeString]) ? $sizeColorQuantities[$sizeString] : [];
-            
-            $colorVariants = [];
-            foreach ($colors as $color => $colorQty) {
-                // Use stored variant SKU if available, otherwise generate (baseSku-SIZE-COLORCODE)
-                $variantKey = $sizeString . '-' . $color;
-                $variantSku = $variantSkus[$variantKey] ?? ($baseSku . '-' . $sizeString . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color)));
-                $colorVariants[] = [
-                    'sku' => $variantSku,
-                    'color' => $color,
-                    'quantity' => $colorQty
-                ];
             }
             
-            $sizes = [[
+            $sizes[] = [
                 'sku' => $baseSku,
-                'size' => $sizeString,
+                'size' => $size,
                 'stock' => $quantity,
                 'size_quantities' => $colors,
                 'color_variants' => $colorVariants
-            ]];
+            ];
         }
 
         echo json_encode(['success' => true, 'sizes' => $sizes]);
