@@ -8,6 +8,59 @@ $confirmFunction = $confirmFunction ?? 'updateProduct';
 $closeFunction = $closeFunction ?? 'closeEditProductModal';
 ?>
 
+<!-- Confirm Remove Size Modal -->
+<div class="modal-overlay" id="confirmRemoveSizeModalOverlay" onclick="closeConfirmRemoveSizeModalOnOverlay(event)" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 11000;">
+    <div class="modal-content" style="max-width: 500px; width: 90%; background: white; border-radius: 16px; padding: 0; position: relative; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
+        <!-- Modal Header -->
+        <div style="padding: 24px 30px; border-bottom: 1px solid #e5e7eb;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: #fef3c7; display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                        <line x1="12" y1="9" x2="12" y2="13"></line>
+                        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                </div>
+                <div>
+                    <h3 style="margin: 0 0 4px 0; font-size: 20px; font-weight: 700; color: #111827;">Warning: Size Has Data</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div style="padding: 24px 30px;">
+            <p style="margin: 0 0 16px 0; font-size: 15px; color: #374151; line-height: 1.5;">
+                You are about to remove size <strong id="confirmRemoveSizeName" style="color: #dc2626;">[SIZE]</strong> from this product.
+            </p>
+            
+            <div id="confirmRemoveSizeInfo" style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: 600; color: #dc2626;">This size has the following colors and quantities:</p>
+                <div id="confirmRemoveSizeColors" style="font-size: 14px; color: #374151;">
+                    <!-- Colors and quantities will be inserted here -->
+                </div>
+            </div>
+            
+            <p style="margin: 0; font-size: 14px; color: #dc2626; font-weight: 500;">
+                ⚠️ All color and quantity data for this size will be permanently deleted!
+            </p>
+        </div>
+
+        <!-- Modal Footer -->
+        <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 20px 30px; border-top: 1px solid #e5e7eb; background: #f9fafb; border-radius: 0 0 16px 16px;">
+            <button type="button" onclick="cancelRemoveSize()"
+                style="padding: 10px 20px; background: white; color: #374151; border: 2px solid #d1d5db; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s;">
+                Cancel
+            </button>
+            <button type="button" onclick="confirmRemoveSize()"
+                style="padding: 10px 20px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s;"
+                onmouseover="this.style.background='#b91c1c'"
+                onmouseout="this.style.background='#dc2626'">
+                Yes, Remove Size
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Edit Product Modal -->
 <div class="modal-overlay" id="<?php echo $modalId; ?>Overlay" onclick="<?php echo $closeFunction; ?>OnOverlay(event)" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: transparent; justify-content: center; align-items: center; z-index: 10000;">
     <div class="modal-content" style="max-width: 1200px; width: 95%; background: white; border-radius: 16px; padding: 0; position: relative; max-height: 95vh; overflow-y: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);" onclick="event.stopPropagation();">
@@ -249,6 +302,8 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
 // Edit modal variables
 let editCategoriesLoaded = false;
 let editSelectedSizes = [];
+let editCurrentSizeColorQuantities = {}; // Store current size_color_quantities for the product being edited
+let pendingSizeToRemove = null; // Store the size that's pending removal
 
 function loadEditCategories() {
     return fetch("../../back-end/read/fetchCategory.php")
@@ -284,6 +339,7 @@ function selectEditSizeType(type) {
 
 function resetEditSizeType() {
     editSelectedSizes = [];
+    editCurrentSizeColorQuantities = {};
     document.getElementById('editSizeTypeSelection').style.display = 'block';
     document.getElementById('editSizeSelectionArea').style.display = 'none';
     document.querySelectorAll('.edit-size-checkbox').forEach(cb => cb.checked = false);
@@ -307,18 +363,132 @@ function toggleEditSize(checkbox) {
     const size = checkbox.value;
     
     if (checkbox.checked) {
+        // Adding a size - just add it
         if (!editSelectedSizes.includes(size)) {
             editSelectedSizes.push(size);
         }
+        renderEditSelectedSizes();
+        updateEditHiddenInputs();
     } else {
+        // Removing a size - check if it has colors/quantities
+        if (editCurrentSizeColorQuantities && editCurrentSizeColorQuantities[size]) {
+            const sizeColors = editCurrentSizeColorQuantities[size];
+            const hasColors = Object.keys(sizeColors).some(color => sizeColors[color] > 0);
+            
+            if (hasColors) {
+                // Show confirmation modal
+                showConfirmRemoveSizeModal(size, sizeColors);
+                // Re-check the checkbox (we'll uncheck it after confirmation)
+                checkbox.checked = true;
+                return;
+            }
+        }
+        
+        // No colors/quantities, just remove
         editSelectedSizes = editSelectedSizes.filter(s => s !== size);
+        renderEditSelectedSizes();
+        updateEditHiddenInputs();
+    }
+}
+
+// Show confirmation modal when removing a size with data
+function showConfirmRemoveSizeModal(size, sizeColors) {
+    pendingSizeToRemove = size;
+    
+    // Update modal content
+    document.getElementById('confirmRemoveSizeName').textContent = size;
+    
+    // Build colors and quantities display
+    const colorsContainer = document.getElementById('confirmRemoveSizeColors');
+    let colorsHtml = '';
+    let totalQty = 0;
+    
+    for (const [color, qty] of Object.entries(sizeColors)) {
+        if (qty > 0) {
+            colorsHtml += `<div style="display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #fecaca;">
+                <span>${color}</span>
+                <span style="font-weight: 600;">${qty}</span>
+            </div>`;
+            totalQty += qty;
+        }
     }
     
-    renderEditSelectedSizes();
-    updateEditHiddenInputs();
+    if (totalQty > 0) {
+        colorsHtml += `<div style="display: flex; justify-content: space-between; padding: 8px 0 0 0; margin-top: 8px; border-top: 2px solid #dc2626; font-weight: 600;">
+            <span>Total</span>
+            <span>${totalQty}</span>
+        </div>`;
+    }
+    
+    colorsContainer.innerHTML = colorsHtml || '<p style="color: #6b7280; font-style: italic;">No quantities recorded</p>';
+    
+    // Show modal
+    document.getElementById('confirmRemoveSizeModalOverlay').style.display = 'flex';
+}
+
+function closeConfirmRemoveSizeModalOnOverlay(event) {
+    if (event.target === document.getElementById('confirmRemoveSizeModalOverlay')) {
+        closeConfirmRemoveSizeModal();
+    }
+}
+
+function closeConfirmRemoveSizeModal() {
+    document.getElementById('confirmRemoveSizeModalOverlay').style.display = 'none';
+    pendingSizeToRemove = null;
+    
+    // Uncheck the checkbox
+    if (pendingSizeToRemove) {
+        document.querySelectorAll('.edit-size-checkbox').forEach(cb => {
+            if (cb.value === pendingSizeToRemove) {
+                cb.checked = false;
+            }
+        });
+    }
+}
+
+function cancelRemoveSize() {
+    // Re-uncheck the checkbox
+    if (pendingSizeToRemove) {
+        document.querySelectorAll('.edit-size-checkbox').forEach(cb => {
+            if (cb.value === pendingSizeToRemove) {
+                cb.checked = false;
+            }
+        });
+    }
+    closeConfirmRemoveSizeModal();
+}
+
+function confirmRemoveSize() {
+    // Actually remove the size
+    if (pendingSizeToRemove) {
+        editSelectedSizes = editSelectedSizes.filter(s => s !== pendingSizeToRemove);
+        renderEditSelectedSizes();
+        updateEditHiddenInputs();
+        
+        // Also uncheck the checkbox
+        document.querySelectorAll('.edit-size-checkbox').forEach(cb => {
+            if (cb.value === pendingSizeToRemove) {
+                cb.checked = false;
+            }
+        });
+    }
+    closeConfirmRemoveSizeModal();
 }
 
 function removeEditSize(size) {
+    // Check if size has colors/quantities
+    if (editCurrentSizeColorQuantities && editCurrentSizeColorQuantities[size]) {
+        const sizeColors = editCurrentSizeColorQuantities[size];
+        const hasColors = Object.keys(sizeColors).some(color => sizeColors[color] > 0);
+        
+        if (hasColors) {
+            // Show confirmation modal
+            showConfirmRemoveSizeModal(size, sizeColors);
+            return;
+        }
+    }
+    
+    // No colors/quantities, just remove
     editSelectedSizes = editSelectedSizes.filter(s => s !== size);
     document.querySelectorAll('.edit-size-checkbox').forEach(cb => {
         if (cb.value === size) {
@@ -342,11 +512,22 @@ function renderEditSelectedSizes() {
     for (let i = 0; i < editSelectedSizes.length; i++) {
         const size = editSelectedSizes[i];
         const sizeEscaped = size.replace(/'/g, "\\'");
+        
+        // Check if this size has colors/quantities
+        let hasData = false;
+        if (editCurrentSizeColorQuantities && editCurrentSizeColorQuantities[size]) {
+            const sizeColors = editCurrentSizeColorQuantities[size];
+            hasData = Object.keys(sizeColors).some(color => sizeColors[color] > 0);
+        }
+        
+        const badgeStyle = hasData ? 'background: #fef3c7; color: #92400e;' : 'background: #dbeafe; color: #1e40af;';
+        
         html += `
-            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: #dbeafe; color: #1e40af; border-radius: 16px; font-size: 13px; font-weight: 500;">
+            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; ${badgeStyle} border-radius: 16px; font-size: 13px; font-weight: 500;">
                 ${size}
+                ${hasData ? '<span title="Has colors/quantities" style="font-size: 10px;">⚠️</span>' : ''}
                 <button type="button" onclick="removeEditSize('${sizeEscaped}')" 
-                    style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: #1e40af;">
+                    style="background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; color: inherit;">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                 </button>
             </span>
@@ -362,6 +543,8 @@ function updateEditHiddenInputs() {
 
 function resetEditForm() {
     editSelectedSizes = [];
+    editCurrentSizeColorQuantities = {};
+    pendingSizeToRemove = null;
     document.getElementById('editNoSizeColorRequired').checked = false;
     document.getElementById('editSizeConfigSection').style.display = 'block';
     document.getElementById('editSizeTypeSelection').style.display = 'block';
@@ -409,6 +592,15 @@ function populateEditForm(product) {
     document.getElementById("editProductName").value = product.name;
     document.getElementById("editProductCategory").value = product.category;
     document.getElementById("editProductPrice").value = product.price;
+    
+    // Store size_color_quantities for checking when unchecking sizes
+    if (product.size_color_quantities) {
+        editCurrentSizeColorQuantities = typeof product.size_color_quantities === 'string' 
+            ? JSON.parse(product.size_color_quantities) 
+            : product.size_color_quantities;
+    } else {
+        editCurrentSizeColorQuantities = {};
+    }
     
     // Preview existing product images
     const previewContainer = document.getElementById("editImagePreview");

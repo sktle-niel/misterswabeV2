@@ -4,7 +4,15 @@ include '../../config/connection.php';
 function fetchHomeProducts() {
     global $conn;
 
-    $sql = "SELECT `id`, `name`, `sku`, `category`, `price`, `stock`, `size`, `images`, `status`, `size_quantities`, `color` FROM `inventory` WHERE 1";
+    // Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+    
+    // Build query conditionally
+    $sql = "SELECT `id`, `name`, `sku`, `category`, `price`, `stock`, `size`, `images`, `status`, `size_quantities`";
+    if ($colorColumnExists) {
+        $sql .= ", `color`";
+    }
+    $sql .= " FROM `inventory` WHERE 1";
 
     $result = $conn->query($sql);
 
@@ -21,12 +29,15 @@ function fetchHomeProducts() {
                 return '../../../uploads/' . $img; // From public/customer/pages/ to uploads/
             }, $images);
 
-            // Decode colors JSON
-            $colors = $row['color'] ?: '';
-            if ($colors) {
-                $colorsArray = json_decode($colors, true);
-                if (is_array($colorsArray)) {
-                    $colors = implode(', ', $colorsArray);
+            // Decode colors JSON (if column exists)
+            $colors = '';
+            if ($colorColumnExists && isset($row['color'])) {
+                $colors = $row['color'] ?: '';
+                if ($colors) {
+                    $colorsArray = json_decode($colors, true);
+                    if (is_array($colorsArray)) {
+                        $colors = implode(', ', $colorsArray);
+                    }
                 }
             }
 

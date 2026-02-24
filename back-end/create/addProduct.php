@@ -139,6 +139,12 @@ function addProduct($data) {
         $conn->query("ALTER TABLE inventory ADD COLUMN variant_skus JSON NULL");
     }
     
+    // Check if color column exists, if not create it
+    $checkColorColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
+    if (!$checkColorColumn || $checkColorColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
+    }
+    
     // Generate variant SKUs for each size and color combination
     // Variant SKU format: baseSku-SIZE-COLORCODE (e.g., SHO-NIK-A1B2-43-RED)
     $variantSkus = [];

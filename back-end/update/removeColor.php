@@ -18,8 +18,17 @@ if (empty($baseSku) || empty($color)) {
 try {
     include '../../config/connection.php';
 
+    // Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+
+    // Build SELECT query based on column existence
+    $selectFields = "size_quantities, size_color_quantities";
+    if ($colorColumnExists) {
+        $selectFields .= ", color";
+    }
+    
     // Fetch current product data
-    $stmt = $conn->prepare("SELECT size_quantities, size_color_quantities, color FROM inventory WHERE sku = ?");
+    $stmt = $conn->prepare("SELECT " . $selectFields . " FROM inventory WHERE sku = ?");
     $stmt->bind_param("s", $baseSku);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -33,7 +42,7 @@ try {
     
     $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
     $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
-    $existingColors = json_decode($row['color'] ?? '[]', true);
+    $existingColors = $colorColumnExists ? json_decode($row['color'] ?? '[]', true) : [];
     
     if (!is_array($sizeColorQuantities)) $sizeColorQuantities = [];
     if (!is_array($sizeQuantities)) $sizeQuantities = [];
@@ -151,13 +160,18 @@ try {
 
     $updatedSizeColorQuantities = json_encode($sizeColorQuantities);
     $updatedSizeQuantities = json_encode($sizeQuantities);
-    $updatedColors = json_encode($allColors);
+    $updatedColors = json_encode($colorColumnExists ? $allColors : []);
 
     error_log("Updated sizeColorQuantities: " . json_encode($sizeColorQuantities));
 
-    // Update the database
-    $updateStmt = $conn->prepare("UPDATE inventory SET size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
-    $updateStmt->bind_param("sssiss", $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
+    // Build UPDATE query based on column existence
+    if ($colorColumnExists) {
+        $updateStmt = $conn->prepare("UPDATE inventory SET size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
+        $updateStmt->bind_param("sssiss", $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
+    } else {
+        $updateStmt = $conn->prepare("UPDATE inventory SET size_quantities = ?, size_color_quantities = ?, stock = ?, status = ? WHERE sku = ?");
+        $updateStmt->bind_param("ssiss", $updatedSizeQuantities, $updatedSizeColorQuantities, $newStock, $newStatus, $baseSku);
+    }
 
     if ($updateStmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Color removed successfully']);
