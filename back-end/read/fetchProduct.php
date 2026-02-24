@@ -4,7 +4,16 @@ include '../../config/connection.php';
 function fetchProducts() {
     global $conn;
 
-    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_quantities, i.size_color_quantities, i.color, i.variant_skus FROM inventory i ORDER BY i.id DESC";
+    // Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+    
+    // Build query conditionally based on column existence
+    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_quantities, i.size_color_quantities";
+    if ($colorColumnExists) {
+        $sql .= ", i.color";
+    }
+    $sql .= ", i.variant_skus FROM inventory i ORDER BY i.id DESC";
+    
     $result = $conn->query($sql);
 
     $products = [];
@@ -48,10 +57,12 @@ function fetchProducts() {
             } else {
                 // Simple product (no sizes) - use the stock from database
                 $calculated_stock = $dbStock;
-                // Also get color from the color column for simple products
-                $colorData = json_decode($row['color'] ?? '[]', true);
-                if (!empty($colorData) && is_array($colorData)) {
-                    $colorDisplay = implode(', ', $colorData);
+                // Also get color from the color column for simple products (if column exists)
+                if ($colorColumnExists && isset($row['color'])) {
+                    $colorData = json_decode($row['color'] ?? '[]', true);
+                    if (!empty($colorData) && is_array($colorData)) {
+                        $colorDisplay = implode(', ', $colorData);
+                    }
                 }
             }
 

@@ -26,6 +26,9 @@ if (empty($color)) {
 try {
     include '../../config/connection.php';
 
+    // Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+
     $baseSku = $sku;
     
     // First check if exact SKU exists
@@ -82,8 +85,14 @@ try {
     }
     $checkStmt->close();
 
+    // Build SELECT query based on column existence
+    $selectFields = "name, category, size, size_quantities, size_color_quantities, variant_skus";
+    if ($colorColumnExists) {
+        $selectFields .= ", color";
+    }
+    
     // Fetch current product data including variant_skus
-    $stmt = $conn->prepare("SELECT name, category, size, size_quantities, size_color_quantities, color, variant_skus FROM inventory WHERE sku = ?");
+    $stmt = $conn->prepare("SELECT " . $selectFields . " FROM inventory WHERE sku = ?");
     $stmt->bind_param("s", $baseSku);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -97,7 +106,7 @@ try {
     
     $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
     $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
-    $existingColors = json_decode($row['color'] ?? '[]', true);
+    $existingColors = $colorColumnExists ? json_decode($row['color'] ?? '[]', true) : [];
     $variantSkus = json_decode($row['variant_skus'] ?? '{}', true);
     
     if (!is_array($sizeColorQuantities)) $sizeColorQuantities = [];
@@ -114,15 +123,15 @@ try {
     // Update size_quantities
     $sizeQuantities[$size] = array_sum($sizeColorQuantities[$size]);
     
-    // Collect all unique colors
+    // Collect all unique colors (only if color column exists)
     $allColors = $existingColors;
-    if (!in_array($color, $allColors)) {
+    if ($colorColumnExists && !in_array($color, $allColors)) {
         $allColors[] = $color;
     }
     
     foreach ($sizeColorQuantities as $sizeKey => $colors) {
         foreach (array_keys($colors) as $colorKey) {
-            if (!in_array($colorKey, $allColors)) {
+            if ($colorColumnExists && !in_array($colorKey, $allColors)) {
                 $allColors[] = $colorKey;
             }
         }
@@ -144,7 +153,7 @@ try {
 
     $updatedSizeColorQuantities = json_encode($sizeColorQuantities);
     $updatedSizeQuantities = json_encode($sizeQuantities);
-    $updatedColors = json_encode($allColors);
+    $updatedColors = json_encode($colorColumnExists ? $allColors : []);
 
     // Generate variant SKUs
     $variantSkus = [];
@@ -174,8 +183,14 @@ try {
         $variantSku = $baseSku . '-' . $size . '-' . $colorCode;
     }
 
-    $updateStmt = $conn->prepare("UPDATE inventory SET variant_skus = ?, size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
-    $updateStmt->bind_param("ssssiss", $updatedVariantSkus, $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
+    // Build UPDATE query based on column existence
+    if ($colorColumnExists) {
+        $updateStmt = $conn->prepare("UPDATE inventory SET variant_skus = ?, size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
+        $updateStmt->bind_param("ssssiss", $updatedVariantSkus, $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
+    } else {
+        $updateStmt = $conn->prepare("UPDATE inventory SET variant_skus = ?, size_quantities = ?, size_color_quantities = ?, stock = ?, status = ? WHERE sku = ?");
+        $updateStmt->bind_param("sssiss", $updatedVariantSkus, $updatedSizeQuantities, $updatedSizeColorQuantities, $newStock, $newStatus, $baseSku);
+    }
 
     if ($updateStmt->execute()) {
         echo json_encode(['success' => true, 'message' => 'Quantity added successfully', 'variantSku' => $variantSku, 'baseSku' => $baseSku]);

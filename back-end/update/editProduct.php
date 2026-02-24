@@ -14,6 +14,14 @@ require_once __DIR__ . '/../utils/skuUtils.php';
 function editProduct($data) {
     global $conn;
 
+    // Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+
+    // If color column doesn't exist, create it
+    if (!$colorColumnExists) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
+    }
+
     // Sanitize inputs
     $originalSku = mysqli_real_escape_string($conn, $data['originalSku']);
     $name = mysqli_real_escape_string($conn, $data['name']);
@@ -57,7 +65,7 @@ function editProduct($data) {
         // Get existing data
         $currentSizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
         $currentSizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
-        $existingColors = json_decode($row['color'] ?? '[]', true);
+        $existingColors = $colorColumnExists ? json_decode($row['color'] ?? '[]', true) : [];
         
         // Initialize arrays if null
         if (!is_array($currentSizeQuantities)) $currentSizeQuantities = [];
@@ -115,7 +123,7 @@ function editProduct($data) {
         $sizeString = implode(',', $newSizes);
         $sizeQuantitiesJson = json_encode($updatedSizeQuantities);
         $sizeColorQuantitiesJson = json_encode($updatedSizeColorQuantities);
-        $colorJson = json_encode($allColors);
+        $colorJson = json_encode($colorColumnExists ? $allColors : []);
     } else {
         return ['success' => false, 'message' => 'Product not found'];
     }
@@ -160,7 +168,7 @@ function editProduct($data) {
         }
     }
 
-    // Build update query
+    // Build update query based on column existence
     $updateFields = [
         "name = '$name'",
         "category = '$categoryName'",
@@ -169,9 +177,13 @@ function editProduct($data) {
         "size = '$sizeString'",
         "size_quantities = '$sizeQuantitiesJson'",
         "size_color_quantities = '$sizeColorQuantitiesJson'",
-        "color = '$colorJson'",
         "status = '$status'"
     ];
+
+    // Add color field only if column exists
+    if ($colorColumnExists) {
+        $updateFields[] = "color = '$colorJson'";
+    }
 
     if (!empty($images)) {
         $imagesJson = json_encode($images);
@@ -191,7 +203,7 @@ function editProduct($data) {
             'status' => $status,
             'size_quantities' => $updatedSizeQuantities,
             'size_color_quantities' => $updatedSizeColorQuantities,
-            'color' => $allColors
+            'color' => $colorColumnExists ? $allColors : []
         ];
     } else {
         error_log('Database error: ' . $conn->error);
