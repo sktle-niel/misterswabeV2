@@ -27,31 +27,38 @@ function renderProducts(productsToRender) {
           ? "badge-warning"
           : "badge-danger";
 
-    // Format size-color quantities for display
+    // Format size-color quantities for display from size_color_quantities
     let sizeQuantitiesDisplay = "N/A";
     if (
-      product.size_quantities &&
-      product.size_quantities !== "null" &&
-      product.size_quantities !== "{}"
+      product.size_color_quantities &&
+      product.size_color_quantities !== "null" &&
+      product.size_color_quantities !== "{}"
     ) {
       try {
-        const sizeQuantities =
-          typeof product.size_quantities === "string"
-            ? JSON.parse(product.size_quantities)
-            : product.size_quantities;
+        const sizeColorQuantities =
+          typeof product.size_color_quantities === "string"
+            ? JSON.parse(product.size_color_quantities)
+            : product.size_color_quantities;
         
-        // Format as: Size (Qty)
-        const formattedQuantities = Object.entries(sizeQuantities)
-          .filter(([key, qty]) => qty > 0)
-          .map(([key, qty]) => {
-            return `${key}: ${qty}`;
+        // Format as: Size:Color (Qty)
+        const formattedQuantities = Object.entries(sizeColorQuantities)
+          .filter(([size, colors]) => colors && typeof colors === 'object')
+          .map(([size, colors]) => {
+            const colorEntries = Object.entries(colors)
+              .filter(([color, qty]) => qty > 0)
+              .map(([color, qty]) => `${color} (${qty})`);
+            if (colorEntries.length > 0) {
+              return `${size}: ${colorEntries.join(', ')}`;
+            }
+            return null;
           })
+          .filter(item => item !== null)
           .join(", ");
         sizeQuantitiesDisplay = formattedQuantities || "N/A";
       } catch (e) {
         console.log(
-          "Error parsing size_quantities:",
-          product.size_quantities,
+          "Error parsing size_color_quantities:",
+          product.size_color_quantities,
           e,
         );
         sizeQuantitiesDisplay = "N/A";
@@ -562,6 +569,19 @@ function addProduct() {
   if (sizeColorConfigInput) {
     formData.append("sizeColorConfig", sizeColorConfigInput.value);
   }
+
+  // Get product information fields (for simple products like bags)
+  const productBrand = document.getElementById("productBrand") ? document.getElementById("productBrand").value : '';
+  const productMaterial = document.getElementById("productMaterial") ? document.getElementById("productMaterial").value : '';
+  const productDimensions = document.getElementById("productDimensions") ? document.getElementById("productDimensions").value : '';
+  const productInfo = document.getElementById("productInfo") ? document.getElementById("productInfo").value : '';
+  const simpleQuantity = document.getElementById("simpleQuantity") ? document.getElementById("simpleQuantity").value : '0';
+  
+  if (productBrand) formData.append("productBrand", productBrand);
+  if (productMaterial) formData.append("productMaterial", productMaterial);
+  if (productDimensions) formData.append("productDimensions", productDimensions);
+  if (productInfo) formData.append("productInfo", productInfo);
+  formData.append("simpleQuantity", simpleQuantity);
 
   // For products without sizes (simple products), quantity will be 0 initially
   // Colors and quantities can be added later via the Add Quantity modal

@@ -36,6 +36,15 @@ function openSummaryModal(sku) {
         return;
     }
 
+    // Check if it's a simple product (no sizes)
+    // A product has sizes if it has size_color_quantities with data
+    const hasSizeColorQuantities = product.size_color_quantities && 
+                                    product.size_color_quantities !== 'null' && 
+                                    product.size_color_quantities !== '{}' &&
+                                    Object.keys(product.size_color_quantities).length > 0;
+    
+    const isSimpleProduct = !hasSizeColorQuantities && (!product.size || product.size === 'N/A' || product.size === '');
+
     // Build summary content
     let summaryHtml = '';
 
@@ -72,7 +81,67 @@ function openSummaryModal(sku) {
         </div>
     `;
 
-    // Size and Color Quantities - Combined display
+    // Product Information (always show if available - for all products)
+    if (product.information && product.information !== 'null') {
+        try {
+            const productInfo = typeof product.information === 'string' ? JSON.parse(product.information) : product.information;
+            
+            if (productInfo && typeof productInfo === 'object') {
+                let infoHtml = '';
+                
+                if (productInfo.brand) {
+                    infoHtml += `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span style="color: #6b7280; font-size: 14px;">Brand</span>
+                            <span style="color: #374151; font-size: 14px; font-weight: 500;">${productInfo.brand}</span>
+                        </div>
+                    `;
+                }
+                
+                if (productInfo.material) {
+                    infoHtml += `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span style="color: #6b7280; font-size: 14px;">Material</span>
+                            <span style="color: #374151; font-size: 14px; font-weight: 500;">${productInfo.material}</span>
+                        </div>
+                    `;
+                }
+                
+                if (productInfo.dimensions) {
+                    infoHtml += `
+                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span style="color: #6b7280; font-size: 14px;">Dimensions</span>
+                            <span style="color: #374151; font-size: 14px; font-weight: 500;">${productInfo.dimensions}</span>
+                        </div>
+                    `;
+                }
+                
+                if (productInfo.product_info) {
+                    infoHtml += `
+                        <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
+                            <span style="color: #6b7280; font-size: 14px; display: block; margin-bottom: 4px;">Additional Info</span>
+                            <span style="color: #374151; font-size: 14px;">${productInfo.product_info}</span>
+                        </div>
+                    `;
+                }
+                
+                if (infoHtml) {
+                    summaryHtml += `
+                        <div>
+                            <h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 600; color: #374151;">Product Information</h4>
+                            <div style="background: #f9fafb; padding: 16px; border-radius: 8px;">
+                                ${infoHtml}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        } catch (e) {
+            console.log('Error parsing product information:', e);
+        }
+    }
+
+    // Size and Color Quantities - always show if available (for products with sizes)
     if (product.size_color_quantities) {
         let sizeColorHtml = '';
         try {

@@ -4,13 +4,13 @@ include '../../config/connection.php';
 function fetchProducts() {
     global $conn;
 
-    // Check if color column exists
-    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+// Check if information column exists
+    $informationColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'information'")->num_rows > 0;
     
-    // Build query conditionally based on column existence
-    $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.size, i.images, i.status, i.size_quantities, i.size_color_quantities";
-    if ($colorColumnExists) {
-        $sql .= ", i.color";
+// Build query - only select columns that exist
+$sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.status, i.size, i.size_quantities, i.size_color_quantities";
+    if ($informationColumnExists) {
+        $sql .= ", i.information";
     }
     $sql .= ", i.variant_skus FROM inventory i ORDER BY i.id DESC";
     
@@ -57,27 +57,47 @@ function fetchProducts() {
             } else {
                 // Simple product (no sizes) - use the stock from database
                 $calculated_stock = $dbStock;
-                // Also get color from the color column for simple products (if column exists)
-                if ($colorColumnExists && isset($row['color'])) {
-                    $colorData = json_decode($row['color'] ?? '[]', true);
-                    if (!empty($colorData) && is_array($colorData)) {
-                        $colorDisplay = implode(', ', $colorData);
-                    }
-                }
             }
 
+            // Get sizes - first try size_color_quantities keys, then fall back to size column
+            $sizesFromConfig = array_keys($size_color_quantities);
+            $sizeValue = '';
+            
+            if (!empty($sizesFromConfig)) {
+                $sizeValue = implode(', ', $sizesFromConfig);
+            } elseif (!empty($row['size'])) {
+                // Fall back to size column
+                $sizeValue = $row['size'];
+            }
+            
             // Format size with EUR prefix for numeric sizes
-            $sizeValue = $row['size'] ?: 'N/A';
-            if ($sizeValue !== 'N/A') {
+            if (!empty($sizeValue)) {
                 $sizeArray = array_map('trim', explode(',', $sizeValue));
                 $formattedSizes = array_map(function($s) {
-                    // Check if the size is numeric (like 39, 40, etc.)
                     if (is_numeric($s)) {
                         return 'EUR ' . $s;
                     }
                     return $s;
                 }, $sizeArray);
                 $sizeValue = implode(', ', $formattedSizes);
+            } else {
+                $sizeValue = 'N/A';
+            }
+            
+            // Get quantities from size_quantities if size_color_quantities is empty
+            $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
+            
+            // If size_color_quantities is empty but we have sizes in size_quantities, show quantities
+            if (empty($size_color_quantities) && !empty($sizeQuantities) && is_array($sizeQuantities)) {
+                $colorParts = [];
+                foreach ($sizeQuantities as $size => $qty) {
+                    if ($qty > 0) {
+                        $colorParts[] = $size . ' (' . $qty . ')';
+                    }
+                }
+                if (!empty($colorParts)) {
+                    $colorDisplay = implode(', ', $colorParts);
+                }
             }
 
             $products[] = [
@@ -89,12 +109,12 @@ function fetchProducts() {
                 'stock' => $dbStock,
                 'size' => $sizeValue,
                 'color' => $colorDisplay,
-                'size_quantities' => $row['size_quantities'] ?? null,
                 'size_color_quantities' => $row['size_color_quantities'] ?? null,
 
-                'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
+'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
                 'images' => $adjustedImages, // Keep all images with adjusted paths
-                'status' => $row['status']
+                'status' => $row['status'],
+                'information' => $informationColumnExists ? $row['information'] ?? null : null
             ];
 
         }

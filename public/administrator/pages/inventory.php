@@ -230,6 +230,68 @@ $recentProduct = !empty($products) ? $products[0] : null;
                         </div>
                         
                         
+                        <!-- Simple Product Section (when No sizes is checked) -->
+                        <div id="simpleProductSection" style="display: none; margin-top: 16px;">
+                            <div style="display: grid; gap: 16px;">
+                                <!-- Product Information Section -->
+                                <div style="border-top: 1px solid #e5e7eb; padding-top: 16px;">
+                                    <label style="display: block; margin-bottom: 12px; font-weight: 600; font-size: 14px; color: #374151;">
+                                        Product Information <span style="color: #6b7280; font-weight: normal;">(Optional - for products like bags)</span>
+                                    </label>
+                                    
+                                    <div style="display: grid; gap: 12px;">
+                                        <!-- Brand -->
+                                        <div>
+                                            <label for="productBrand" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Brand
+                                            </label>
+                                            <input type="text" id="productBrand" name="productBrand" 
+                                                placeholder="e.g., Nike, Adidas, Hermes"
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';">
+                                        </div>
+                                        
+                                        <!-- Material -->
+                                        <div>
+                                            <label for="productMaterial" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Material
+                                            </label>
+                                            <input type="text" id="productMaterial" name="productMaterial" 
+                                                placeholder="e.g., Leather, Canvas, Polyester"
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';">
+                                        </div>
+                                        
+                                        <!-- Dimensions -->
+                                        <div>
+                                            <label for="productDimensions" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Dimensions
+                                            </label>
+                                            <input type="text" id="productDimensions" name="productDimensions" 
+                                                placeholder="e.g., 30cm x 20cm x 10cm"
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';">
+                                        </div>
+                                        
+                                        <!-- Additional Info -->
+                                        <div>
+                                            <label for="productInfo" style="display: block; margin-bottom: 4px; font-size: 13px; color: #6b7280;">
+                                                Additional Information
+                                            </label>
+                                            <textarea id="productInfo" name="productInfo" rows="3"
+                                                placeholder="Any additional product details, features, or specifications..."
+                                                style="width: 100%; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; box-sizing: border-box; resize: vertical;"
+                                                onfocus="this.style.borderColor='#3b82f6'; this.style.outline='none';"
+                                                onblur="this.style.borderColor='#e5e7eb';"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <input type="hidden" id="productSizes" name="productSizes">
                         <input type="hidden" id="sizeColorConfig" name="sizeColorConfig">
                     </div>
@@ -476,11 +538,18 @@ function renderSelectedSizes() {
 function toggleSizeColorRequired() {
     const checkbox = document.getElementById('noSizeColorRequired');
     const configSection = document.getElementById('sizeConfigSection');
+    const simpleProductSection = document.getElementById('simpleProductSection');
     
     if (checkbox.checked) {
         configSection.style.display = 'none';
+        if (simpleProductSection) {
+            simpleProductSection.style.display = 'block';
+        }
     } else {
         configSection.style.display = 'block';
+        if (simpleProductSection) {
+            simpleProductSection.style.display = 'none';
+        }
     }
     updateHiddenInputs();
 }
@@ -504,6 +573,21 @@ function resetAddProductForm() {
     document.getElementById('sizeSelectionArea').style.display = 'none';
     document.getElementById('alphaSizesSection').style.display = 'none';
     document.getElementById('numericSizesSection').style.display = 'none';
+    
+    // Reset simple product section
+    const simpleProductSection = document.getElementById('simpleProductSection');
+    if (simpleProductSection) {
+        simpleProductSection.style.display = 'none';
+    }
+    // Reset product info fields
+    const productFields = ['simpleQuantity', 'productBrand', 'productMaterial', 'productDimensions', 'productInfo'];
+    productFields.forEach(fieldId => {
+        const field = document.getElementById(fieldId);
+        if (field) {
+            field.value = fieldId === 'simpleQuantity' ? '0' : '';
+        }
+    });
+    
     renderSelectedSizes();
     updateHiddenInputs();
 }
