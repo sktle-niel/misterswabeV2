@@ -22,7 +22,7 @@
                     <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid #f3f4f6; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite;"></div>
                     <p style="margin-top: 12px; color: #6b7280;">Loading sizes...</p>
                 </div>
-
+                
                 <!-- Sizes Container -->
                 <div id="sizesContainer" style="display: none;">
                     <!-- Sizes with colors will be dynamically inserted here -->
@@ -35,7 +35,16 @@
 
                 <!-- No Sizes State -->
                 <div id="sizesEmptyState" style="text-align: center; padding: 20px; display: none;">
-                    <p style="color: #6b7280; font-size: 15px;">This product has no sizes defined.</p>
+                    <p style="color: #6b7280; font-size: 15px; margin-bottom: 16px;">This product has no sizes or colors defined.</p>
+                    
+                    <!-- Direct Stock Input -->
+                    <div id="simpleStockInput">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
+                            Enter Stock
+                        </label>
+                        <input type="number" id="simpleStockQuantity" min="0" value="0" 
+                            style="width: 200px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; text-align: center;">
+                    </div>
                 </div>
 
                 <!-- Modal Footer -->
@@ -72,6 +81,9 @@
 
 <script>
 // Add Quantity Modal Functions
+// Store current stock globally
+window.currentStock = 0;
+
 function closeAddQuantityModal() {
   document.getElementById("addQuantityModalOverlay").style.display = "none";
   document.getElementById("addQuantityForm").reset();
@@ -80,6 +92,8 @@ function closeAddQuantityModal() {
   document.getElementById("sizesErrorState").style.display = "none";
   document.getElementById("sizesEmptyState").style.display = "none";
   document.getElementById("sizesContainer").innerHTML = "";
+  document.getElementById('simpleStockQuantity').value = '0';
+  window.currentStock = 0;
 }
 
 function closeAddQuantityModalOnOverlay(event) {
@@ -93,6 +107,9 @@ function openAddQuantityModal(sku) {
   if (!product) return;
 
   const baseSku = sku;
+  
+  // Store the current stock from the products array as fallback
+  window.currentStock = parseInt(product.stock) || 0;
   
   document.getElementById("addQuantityBaseSku").value = baseSku;
   document.getElementById("addQuantityModalOverlay").style.display = "flex";
@@ -120,12 +137,36 @@ function fetchProductSizes(baseSku) {
       try {
         const data = JSON.parse(text);
         console.log("Parsed JSON:", data);
+        console.log("Current stock from modal before fetch:", window.currentStock);
+        
+        // Try to get currentStock from the response - check first size
+        if (data.success && data.sizes && data.sizes.length > 0 && data.sizes[0].currentStock !== undefined) {
+          window.currentStock = data.sizes[0].currentStock;
+          console.log("Updated currentStock from response:", window.currentStock);
+        }
+        
+        // ALWAYS set the placeholder with the current stock value
+        // This ensures it shows even when colors are defined
+        document.getElementById("simpleStockQuantity").placeholder = "Current stock: " + window.currentStock;
         
         if (data.success && data.sizes && data.sizes.length > 0) {
-          renderSizeColorInputs(data.sizes);
-          document.getElementById("sizesLoadingState").style.display = "none";
-          document.getElementById("sizesContainer").style.display = "block";
+          // For products with sizes, check if they have any colors
+          const hasAnyColors = data.sizes.some(s => {
+            return (s.color_variants && s.color_variants.length > 0) ||
+                   (s.size_quantities && Object.keys(s.size_quantities).length > 0);
+          });
+          
+          if (!hasAnyColors) {
+            // Show the simple stock input for products with no colors
+            document.getElementById("sizesLoadingState").style.display = "none";
+            document.getElementById("sizesEmptyState").style.display = "block";
+          } else {
+            renderSizeColorInputs(data.sizes);
+            document.getElementById("sizesLoadingState").style.display = "none";
+            document.getElementById("sizesContainer").style.display = "block";
+          }
         } else if (data.success && (!data.sizes || data.sizes.length === 0)) {
+          // Even if no sizes, still show the empty state
           document.getElementById("sizesLoadingState").style.display = "none";
           document.getElementById("sizesEmptyState").style.display = "block";
         } else {
@@ -150,6 +191,9 @@ function fetchProductSizes(baseSku) {
 function renderSizeColorInputs(sizes) {
   const container = document.getElementById("sizesContainer");
   container.innerHTML = "";
+  
+  // Get current stock from first size
+  const currentStock = sizes[0]?.currentStock || 0;
   
   sizes.forEach((sizeData, index) => {
     const sizeDiv = document.createElement("div");
@@ -510,6 +554,76 @@ function updateSizeTotal(size) {
   }
 }
 
+function handleSimpleStockUpdate(quantity) {
+  const baseSku = window.currentBaseSku;
+  const submitBtn = document.getElementById("addQuantitySubmitBtn");
+  
+  // Disable submit button
+  submitBtn.disabled = true;
+  submitBtn.style.opacity = "0.6";
+  submitBtn.style.cursor = "not-allowed";
+  
+  // Send request to update simple stock directly in the stock column
+  fetch("../../back-end/update/addQuantity.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "sku=" + encodeURIComponent(baseSku) + 
+          "&amount=" + encodeURIComponent(quantity) + 
+          "&size=" + encodeURIComponent('') + 
+          "&color=" + encodeURIComponent('') + 
+          "&simpleStock=true",
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = "1";
+      submitBtn.style.cursor = "pointer";
+      
+      if (data.success) {
+        // Update local products array
+        const productIndex = products.findIndex(p => p.sku === baseSku);
+        if (productIndex !== -1) {
+          products[productIndex].stock = (parseInt(products[productIndex].stock) || 0) + quantity;
+          
+          // Update status
+          if (products[productIndex].stock === 0) {
+            products[productIndex].status = 'Out of Stock';
+          } else if (products[productIndex].stock <= 10) {
+            products[productIndex].status = 'Low Stock';
+          } else {
+            products[productIndex].status = 'In Stock';
+          }
+          
+          localStorage.setItem("inventoryProducts", JSON.stringify(products));
+        }
+        
+        // Show success message
+        const successMessage = document.getElementById("successMessage");
+        const successText = successMessage.querySelector(".success-text");
+        successText.textContent = "Stock Added Successfully!";
+        successMessage.style.display = "block";
+
+        setTimeout(() => {
+          successMessage.style.display = "none";
+        }, 3000);
+
+        closeAddQuantityModal();
+        window.location.reload();
+      } else {
+        showInvalidMessage("Error: " + (data.message || "Unknown error"));
+      }
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = "1";
+      submitBtn.style.cursor = "pointer";
+      showInvalidMessage("Error adding stock");
+    });
+}
+
 function addQuantity() {
   const form = document.getElementById("addQuantityForm");
   
@@ -517,19 +631,27 @@ function addQuantity() {
   const sizesContainer = document.getElementById("sizesContainer");
   const sizesEmptyState = document.getElementById("sizesEmptyState");
   const sizesErrorState = document.getElementById("sizesErrorState");
+  const simpleStockQuantity = document.getElementById("simpleStockQuantity");
   
   if (!form.checkValidity()) {
     form.reportValidity();
     return;
   }
   
-  // Check if there are sizes defined
+  // Check if empty state is shown (direct stock input for products with no sizes/colors)
   if (sizesEmptyState.style.display === "block") {
-    showInvalidMessage("This product has no sizes defined. Please add first.");
+    const quantity = parseInt(simpleStockQuantity.value) || 0;
+    if (quantity < 0) {
+      showInvalidMessage("Please enter a valid quantity");
+      return;
+    }
+    
+    // Handle simple stock update
+    handleSimpleStockUpdate(quantity);
     return;
   }
   
-  // Check if sizes to the product there was an error loading sizes
+  // Check if there was an error loading sizes
   if (sizesErrorState.style.display === "block") {
     showInvalidMessage("Failed to load product sizes. Please try again.");
     return;

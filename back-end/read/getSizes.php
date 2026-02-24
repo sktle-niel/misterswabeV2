@@ -22,8 +22,8 @@ if (empty($baseSku)) {
 }
 
 try {
-    // Fetch the product by base SKU including variant_skus
-    $stmt = $conn->prepare("SELECT sku, name, size, size_quantities, size_color_quantities, variant_skus FROM inventory WHERE sku = ?");
+    // Fetch the product by base SKU including variant_skus and stock
+    $stmt = $conn->prepare("SELECT sku, name, size, size_quantities, size_color_quantities, variant_skus, stock FROM inventory WHERE sku = ?");
     if (!$stmt) {
         echo json_encode(['success' => false, 'message' => 'Query preparation failed: ' . $conn->error]);
         exit;
@@ -44,6 +44,8 @@ try {
         $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
         $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
         $variantSkus = json_decode($row['variant_skus'] ?? '{}', true);
+        // Use the stock column directly from the database
+        $currentStock = (int)($row['stock'] ?? 0);
         
         // Initialize arrays if null
         if (!is_array($sizeQuantities)) $sizeQuantities = [];
@@ -54,21 +56,6 @@ try {
 
         // If no sizes (simple product), return base SKU with stock
         if (!$hasSizes) {
-            // Calculate stock from size_color_quantities (sum of all color quantities)
-            $baseStock = 0;
-            if (!empty($sizeColorQuantities) && is_array($sizeColorQuantities)) {
-                foreach ($sizeColorQuantities as $sizeKey => $colors) {
-                    if (is_array($colors)) {
-                        $baseStock += array_sum($colors);
-                    }
-                }
-            }
-            
-            // If still 0, fallback to the stock field
-            if ($baseStock === 0) {
-                $baseStock = (int)($row['stock'] ?? 0);
-            }
-            
             // Get colors from size_color_quantities for this size (empty string key for simple products)
             $colors = isset($sizeColorQuantities['']) ? $sizeColorQuantities[''] : [];
             
@@ -91,7 +78,8 @@ try {
             $sizes = [[
                 'sku' => $baseSku,
                 'size' => '',
-                'stock' => $baseStock,
+                'stock' => $currentStock,
+                'currentStock' => $currentStock,
                 'size_quantities' => $colors,
                 'color_variants' => $colorVariants,
                 'isSimpleProduct' => true,
@@ -157,6 +145,7 @@ try {
                 'sku' => $baseSku,
                 'size' => $size,
                 'stock' => $quantity,
+                'currentStock' => $currentStock,
                 'size_quantities' => $colors,
                 'color_variants' => $colorVariants
             ];

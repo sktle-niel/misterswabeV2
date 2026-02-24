@@ -95,7 +95,13 @@ function editProduct($data) {
         if ($isSimpleProduct) {
             // Simple product - preserve existing size data and just set the quantity
             $updatedSizeColorQuantities = $currentSizeColorQuantities;
-            $stock = $simpleQuantity;
+            // Only update stock if a valid quantity is provided (> 0), otherwise preserve existing stock
+            if ($simpleQuantity > 0) {
+                $stock = $simpleQuantity;
+            } else {
+                // Preserve existing stock from database
+                $stock = intval($row['stock'] ?? 0);
+            }
         } else {
             // Product with sizes - keep existing quantities from size_color_quantities
             foreach ($newSizes as $size) {
@@ -113,6 +119,11 @@ function editProduct($data) {
                 if (is_array($colors)) {
                     $stock += array_sum($colors);
                 }
+            }
+            
+            // If stock is still 0 after calculation, preserve existing stock from database
+            if ($stock == 0) {
+                $stock = intval($row['stock'] ?? 0);
             }
         }
         
