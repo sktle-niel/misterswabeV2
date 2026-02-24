@@ -20,6 +20,18 @@ function addProduct($data) {
     // Sanitize inputs
     $name = mysqli_real_escape_string($conn, $data['name']);
     
+    // Check if product name already exists
+    $nameCheckStmt = $conn->prepare("SELECT id, name FROM inventory WHERE name = ?");
+    $nameCheckStmt->bind_param("s", $name);
+    $nameCheckStmt->execute();
+    $nameCheckResult = $nameCheckStmt->get_result();
+    
+    if ($nameCheckResult->num_rows > 0) {
+        $nameCheckStmt->close();
+        return ['success' => false, 'message' => 'A product with this name already exists. Please use a different name or edit the existing product.'];
+    }
+    $nameCheckStmt->close();
+    
     // Handle category - store the name directly
     $category = mysqli_real_escape_string($conn, $data['category']);
     
