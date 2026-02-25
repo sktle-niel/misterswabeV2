@@ -128,61 +128,48 @@ function openAddQuantityModal(sku) {
 function fetchProductSizes(baseSku) {
   fetch("../../back-end/read/getSizes.php?sku=" + encodeURIComponent(baseSku))
     .then((response) => {
-      console.log("Response status:", response.status);
       return response.text();
     })
     .then((text) => {
-      console.log("Raw response:", text);
-      
       try {
         const data = JSON.parse(text);
-        console.log("Parsed JSON:", data);
-        console.log("Current stock from modal before fetch:", window.currentStock);
         
-        // Try to get currentStock from the response - check first size
+        // Get currentStock from the response - check first size
         if (data.success && data.sizes && data.sizes.length > 0 && data.sizes[0].currentStock !== undefined) {
           window.currentStock = data.sizes[0].currentStock;
-          console.log("Updated currentStock from response:", window.currentStock);
         }
         
         // ALWAYS set the placeholder with the current stock value
-        // This ensures it shows even when colors are defined
         document.getElementById("simpleStockQuantity").placeholder = "Current stock: " + window.currentStock;
         
         if (data.success && data.sizes && data.sizes.length > 0) {
-          // For products with sizes, check if they have any colors
-          const hasAnyColors = data.sizes.some(s => {
-            return (s.color_variants && s.color_variants.length > 0) ||
-                   (s.size_quantities && Object.keys(s.size_quantities).length > 0);
-          });
+          // SIMPLE LOGIC: If product has sizes (is not a simple product), show size/color inputs
+          const hasSizes = data.sizes.some(s => !s.isSimpleProduct && s.size && s.size.trim() !== '');
           
-          if (!hasAnyColors) {
-            // Show the simple stock input for products with no colors
-            document.getElementById("sizesLoadingState").style.display = "none";
-            document.getElementById("sizesEmptyState").style.display = "block";
-          } else {
+          if (hasSizes) {
+            // Product has sizes - show the size/color inputs
             renderSizeColorInputs(data.sizes);
             document.getElementById("sizesLoadingState").style.display = "none";
             document.getElementById("sizesContainer").style.display = "block";
+          } else {
+            // No sizes (simple product) - show the stock input
+            document.getElementById("sizesLoadingState").style.display = "none";
+            document.getElementById("sizesEmptyState").style.display = "block";
           }
         } else if (data.success && (!data.sizes || data.sizes.length === 0)) {
-          // Even if no sizes, still show the empty state
+          // Even if no sizes returned, show the empty state
           document.getElementById("sizesLoadingState").style.display = "none";
           document.getElementById("sizesEmptyState").style.display = "block";
         } else {
-          console.error("No sizes found or unsuccessful:", data.message);
           document.getElementById("sizesLoadingState").style.display = "none";
           document.getElementById("sizesErrorState").style.display = "block";
         }
       } catch (e) {
-        console.error("JSON parse error:", e);
-        console.error("Received text was:", text);
         document.getElementById("sizesLoadingState").style.display = "none";
         document.getElementById("sizesErrorState").style.display = "block";
       }
     })
     .catch((error) => {
-      console.error("Fetch error:", error);
       document.getElementById("sizesLoadingState").style.display = "none";
       document.getElementById("sizesErrorState").style.display = "block";
     });
@@ -196,6 +183,11 @@ function renderSizeColorInputs(sizes) {
   const currentStock = sizes[0]?.currentStock || 0;
   
   sizes.forEach((sizeData, index) => {
+    // Skip simple products in the sizes container
+    if (sizeData.isSimpleProduct || !sizeData.size || sizeData.size.trim() === '') {
+      return;
+    }
+    
     const sizeDiv = document.createElement("div");
     sizeDiv.style.marginBottom = "24px";
     sizeDiv.style.padding = "16px";
@@ -212,8 +204,6 @@ function renderSizeColorInputs(sizes) {
     // Check if color_variants exist (new format with variant SKUs)
     let colorsHtml = '';
     const colorVariants = sizeData.color_variants || [];
-    const isSimple = sizeData.isSimpleProduct || sizeData.size === '';
-    const containerId = isSimple ? 'colors-simple' : 'colors-' + sizeData.size.replace(/\s/g, '-');
     
     if (colorVariants.length > 0) {
       // Use color variants with their own SKUs
@@ -224,7 +214,7 @@ function renderSizeColorInputs(sizes) {
             <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${variant.color}</span>
             <input type="number" 
                    class="color-quantity-input" 
-                   data-size="${isSimple ? '' : sizeData.size}" 
+                   data-size="${sizeData.size}" 
                    data-color="${variant.color}"
                    data-sku="${variant.sku}"
                    min="0" 
@@ -232,7 +222,7 @@ function renderSizeColorInputs(sizes) {
                    placeholder="Qty"
                    style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
             <button type="button" 
-                    onclick="removeColor('${isSimple ? '' : sizeData.size}', '${variant.color.replace(/'/g, "\\'")}', '${variant.sku}', ${isSimple})"
+                    onclick="removeColor('${sizeData.size}', '${variant.color.replace(/'/g, "\\'")}', '${variant.sku}')"
                     style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
                     title="Remove color">
               ✕
@@ -246,15 +236,13 @@ function renderSizeColorInputs(sizes) {
         const qty = existingColors[color] || 0;
         // Generate variant SKU for old format
         const colorCode = color.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        const variantSku = isSimple 
-          ? sizeData.sku + '-' + colorCode 
-          : sizeData.sku + '-' + sizeData.size + '-' + colorCode;
+        const variantSku = sizeData.sku + '-' + sizeData.size + '-' + colorCode;
         colorsHtml += `
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
             <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${color}</span>
             <input type="number" 
                    class="color-quantity-input" 
-                   data-size="${isSimple ? '' : sizeData.size}" 
+                   data-size="${sizeData.size}" 
                    data-color="${color}"
                    data-sku="${variantSku}"
                    min="0" 
@@ -262,7 +250,7 @@ function renderSizeColorInputs(sizes) {
                    placeholder="Qty"
                    style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
             <button type="button" 
-                    onclick="removeColor('${isSimple ? '' : sizeData.size}', '${color.replace(/'/g, "\\'")}', '${variantSku}', ${isSimple})"
+                    onclick="removeColor('${sizeData.size}', '${color.replace(/'/g, "\\'")}', '${variantSku}')"
                     style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
                     title="Remove color">
               ✕
@@ -272,147 +260,37 @@ function renderSizeColorInputs(sizes) {
       });
     }
     
-    // Determine label based on whether it's a simple product
-    const sizeLabel = sizeData.isSimpleProduct ? sizeData.productName : `Size: ${sizeData.size}`;
-    
-    let sizeContent = '';
-    
-    if (sizeData.isSimpleProduct) {
-      // Simple product - show color inputs (same as products with sizes)
-      const simpleSizeKey = '';
-      
-      sizeContent = `
-        <!-- Existing Colors -->
-        <div id="colors-simple" style="margin-bottom: 12px;">
-          ${colorsHtml}
-        </div>
-        
-        <!-- Add New Color -->
-        <div style="display: flex; gap: 8px;">
-          <input type="text" 
-                 id="newColor-simple"
-                 placeholder="Add new color" 
-                 style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
-          <button type="button" 
-                  onclick="addColorForSimpleProduct()"
-                  style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
-            Add Color
-          </button>
-        </div>
-      `;
-    } else {
-      // Product with sizes - show size/color inputs
-      sizeContent = `
-        <!-- Existing Colors -->
-        <div id="colors-${sizeData.size.replace(/\s/g, '-')}" style="margin-bottom: 12px;">
-          ${colorsHtml}
-        </div>
-        
-        <!-- Add New Color -->
-        <div style="display: flex; gap: 8px;">
-          <input type="text" 
-                 id="newColor-${sizeData.size.replace(/\s/g, '-')}"
-                 placeholder="Add new color" 
-                 style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
-          <button type="button" 
-                  onclick="addColorForSize('${sizeData.size}', '${sizeData.sku}')"
-                  style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
-            Add Color
-          </button>
-        </div>
-      `;
-    }
-    
     sizeDiv.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <label style="font-weight: 600; font-size: 14px; color: #374151;">
-          ${sizeLabel}
+          Size: ${sizeData.size}
         </label>
         <span style="font-size: 12px; color: #6b7280;">
-          ${sizeData.isSimpleProduct ? 'Total: <span id="total-simple">' + Object.values(existingColors).reduce((a, b) => a + b, 0) + '</span>' : 'Total: <span id="total-' + sizeData.size.replace(/\s/g, '-') + '">' + Object.values(existingColors).reduce((a, b) => a + b, 0) + '</span>'}
+          Total: <span id="total-${sizeData.size.replace(/\s/g, '-')}">${Object.values(existingColors).reduce((a, b) => a + b, 0)}</span>
         </span>
       </div>
-      ${sizeContent}
+      
+      <!-- Existing Colors -->
+      <div id="colors-${sizeData.size.replace(/\s/g, '-')}" style="margin-bottom: 12px;">
+        ${colorsHtml}
+      </div>
+      
+      <!-- Add New Color -->
+      <div style="display: flex; gap: 8px;">
+        <input type="text" 
+               id="newColor-${sizeData.size.replace(/\s/g, '-')}"
+               placeholder="Add new color" 
+               style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+        <button type="button" 
+                onclick="addColorForSize('${sizeData.size}', '${sizeData.sku}')"
+                style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+          Add Color
+        </button>
+      </div>
     `;
     
     container.appendChild(sizeDiv);
   });
-}
-
-function addColorForSimpleProduct() {
-  const inputId = 'newColor-simple';
-  const colorInput = document.getElementById(inputId);
-  const colorName = colorInput.value.trim();
-  
-  if (!colorName) {
-    showInvalidMessage('Please enter a color name');
-    return;
-  }
-  
-  // Check if color already exists
-  const colorsContainer = document.getElementById('colors-simple');
-  const existingInputs = colorsContainer.querySelectorAll('.color-quantity-input');
-  for (let input of existingInputs) {
-    if (input.dataset.color.toLowerCase() === colorName.toLowerCase()) {
-      showInvalidMessage('This color already exists');
-      return;
-    }
-  }
-  
-  // Use base SKU and create proper variant SKU: baseSku-COLORCODE (for simple products)
-  const baseSku = window.currentBaseSku;
-  const colorCode = colorName.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
-  const variantSku = baseSku + '-' + colorCode;
-  
-  // Add new color input with empty size key for simple products
-  const newColorDiv = document.createElement('div');
-  newColorDiv.style.display = 'flex';
-  newColorDiv.style.alignItems = 'center';
-  newColorDiv.style.gap = '8px';
-  newColorDiv.style.marginBottom = '8px';
-  
-  newColorDiv.innerHTML = `
-    <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${colorName}</span>
-    <input type="number" 
-           class="color-quantity-input" 
-           data-size="" 
-           data-color="${colorName}"
-           data-sku="${variantSku}"
-           data-new="true"
-           min="0" 
-           value="0"
-           placeholder="Qty"
-           style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
-    <button type="button" 
-            onclick="removeColor('', '${colorName.replace(/'/g, "\\'")}', '${variantSku}', true)"
-            style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
-            title="Remove color">
-      ✕
-    </button>
-  `;
-  
-  colorsContainer.appendChild(newColorDiv);
-  colorInput.value = '';
-  
-  // Add event listener to update total
-  const qtyInput = newColorDiv.querySelector('.color-quantity-input');
-  qtyInput.addEventListener('input', function() {
-    updateSimpleProductTotal();
-  });
-}
-
-function updateSimpleProductTotal() {
-  const container = document.getElementById('colors-simple');
-  const inputs = container.querySelectorAll('.color-quantity-input');
-  let total = 0;
-  inputs.forEach(input => {
-    total += parseInt(input.value) || 0;
-  });
-  
-  const totalSpan = document.getElementById('total-simple');
-  if (totalSpan) {
-    totalSpan.textContent = total;
-  }
 }
 
 function addColorForSize(size, sku) {
@@ -460,7 +338,7 @@ function addColorForSize(size, sku) {
            placeholder="Qty"
            style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
     <button type="button" 
-            onclick="removeColor('${size}', '${colorName.replace(/'/g, "\\'")}', '${variantSku}', false)"
+            onclick="removeColor('${size}', '${colorName.replace(/'/g, "\\'")}', '${variantSku}')"
             style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
             title="Remove color">
       ✕
@@ -477,67 +355,20 @@ function addColorForSize(size, sku) {
   });
 }
 
-// Store pending color removal info
-let pendingColorRemoval = null;
-
-function removeColor(size, color, sku, isSimple) {
-  // Store the pending removal info
-  pendingColorRemoval = { size, color, sku, isSimple };
+function removeColor(size, color, sku) {
+  // Remove the color input element
+  const colorsContainer = document.getElementById('colors-' + size.replace(/\s/g, '-'));
+  const inputs = colorsContainer.querySelectorAll('.color-quantity-input');
   
-  // Show custom modal
-  const modal = document.getElementById('removeColorModalOverlay');
-  const colorNameSpan = document.getElementById('removeColorName');
-  colorNameSpan.textContent = color;
-  modal.style.display = 'flex';
-}
-
-function closeRemoveColorModal() {
-  const modal = document.getElementById('removeColorModalOverlay');
-  modal.style.display = 'none';
-  pendingColorRemoval = null;
-}
-
-function confirmRemoveColor() {
-  if (!pendingColorRemoval) return;
+  for (let input of inputs) {
+    if (input.dataset.color === color) {
+      input.parentElement.remove();
+      break;
+    }
+  }
   
-  const { size, color, sku, isSimple } = pendingColorRemoval;
-  const baseSku = window.currentBaseSku;
-  
-  // Close modal first
-  closeRemoveColorModal();
-  
-  fetch("../../back-end/update/removeColor.php", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "baseSku=" + encodeURIComponent(baseSku) + 
-          "&size=" + encodeURIComponent(size) + 
-          "&color=" + encodeURIComponent(color),
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.success) {
-        // Show success message
-        const successMessage = document.getElementById("successMessage");
-        const successText = successMessage.querySelector(".success-text");
-        successText.textContent = "Color Removed Successfully!";
-        successMessage.style.display = "block";
-
-        setTimeout(() => {
-          successMessage.style.display = "none";
-        }, 3000);
-        
-        // Reload the modal to show updated colors
-        fetchProductSizes(baseSku);
-      } else {
-        showInvalidMessage("Error: " + (data.message || "Unknown error"));
-      }
-    })
-    .catch((error) => {
-      console.error("Error:", error);
-      showInvalidMessage("Error removing color");
-    });
+  // Update the total
+  updateSizeTotal(size);
 }
 
 function updateSizeTotal(size) {
@@ -616,7 +447,6 @@ function handleSimpleStockUpdate(quantity) {
       }
     })
     .catch((error) => {
-      console.error("Error:", error);
       submitBtn.disabled = false;
       submitBtn.style.opacity = "1";
       submitBtn.style.cursor = "pointer";
@@ -638,7 +468,7 @@ function addQuantity() {
     return;
   }
   
-  // Check if empty state is shown (direct stock input for products with no sizes/colors)
+  // Check if empty state is shown (direct stock input for products with no sizes)
   if (sizesEmptyState.style.display === "block") {
     const quantity = parseInt(simpleStockQuantity.value) || 0;
     if (quantity < 0) {
@@ -663,8 +493,8 @@ function addQuantity() {
     return;
   }
 
-  // Get both color-quantity inputs and simple-quantity inputs
-  const quantityInputs = document.querySelectorAll(".color-quantity-input, .simple-quantity-input");
+  // Get both color-quantity inputs
+  const quantityInputs = document.querySelectorAll(".color-quantity-input");
   const updates = [];
   
   quantityInputs.forEach((input) => {
@@ -701,57 +531,6 @@ function processQuantityUpdates(updates, index, submitBtn) {
     submitBtn.disabled = false;
     submitBtn.style.opacity = "1";
     submitBtn.style.cursor = "pointer";
-    
-    // Update the local products array with new color and stock values
-    updates.forEach(update => {
-      const productIndex = products.findIndex(p => p.sku === update.sku || p.sku === window.currentBaseSku);
-      if (productIndex !== -1) {
-        const product = products[productIndex];
-        
-        // Update stock based on the amount added
-        product.stock = (parseInt(product.stock) || 0) + update.amount;
-        
-        // Update status based on new stock
-        if (product.stock === 0) {
-          product.status = 'Out of Stock';
-        } else if (product.stock <= 10) {
-          product.status = 'Low Stock';
-        } else {
-          product.status = 'In Stock';
-        }
-        
-        // Update color field if new color was added
-        if (update.isNew || !product.color.includes(update.color)) {
-          if (product.color && product.color !== "N/A") {
-            product.color = product.color + ", " + update.color;
-          } else {
-            product.color = update.color;
-          }
-        }
-        
-        // Update size_quantities if it exists
-        if (product.size_quantities) {
-          try {
-            const sizeQuantities = typeof product.size_quantities === 'string' 
-              ? JSON.parse(product.size_quantities) 
-              : product.size_quantities;
-            
-            if (!sizeQuantities[update.size]) {
-              sizeQuantities[update.size] = 0;
-            }
-            sizeQuantities[update.size] = (sizeQuantities[update.size] || 0) + update.amount;
-            product.size_quantities = sizeQuantities;
-          } catch (e) {
-            console.log("Error updating size_quantities:", e);
-          }
-        }
-        
-        products[productIndex] = product;
-      }
-    });
-    
-    // Save to localStorage and re-render the table
-    localStorage.setItem("inventoryProducts", JSON.stringify(products));
     
     // Show success message
     const successMessage = document.getElementById("successMessage");
@@ -795,7 +574,6 @@ function processQuantityUpdates(updates, index, submitBtn) {
       }
     })
     .catch((error) => {
-      console.error("Error:", error);
       submitBtn.disabled = false;
       submitBtn.style.opacity = "1";
       submitBtn.style.cursor = "pointer";

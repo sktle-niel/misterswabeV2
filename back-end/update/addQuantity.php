@@ -162,23 +162,44 @@ try {
     if (!is_array($existingColors)) $existingColors = [];
     if (!is_array($variantSkus)) $variantSkus = [];
     
-    // Update size_color_quantities with color-specific quantity
-    // Structure: { "Size": { "Color": quantity } }
+    // Generate variant SKU first
+    $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color));
+    // For simple products (empty size), use baseSku-COLORCODE format
+    if (empty($size)) {
+        $variantSku = $baseSku . '-' . $colorCode;
+    } else {
+        $variantSku = $baseSku . '-' . $size . '-' . $colorCode;
+    }
+    
+    // Update size_color_quantities with color-specific quantity in new format
+    // Structure: { "Size": { "Color": { "quantity": 10, "sku": "BASE-S-WHI" } } }
     if (!isset($sizeColorQuantities[$size])) {
         $sizeColorQuantities[$size] = [];
     }
-    $sizeColorQuantities[$size][$color] = $amount;
+    $sizeColorQuantities[$size][$color] = [
+        'quantity' => $amount,
+        'sku' => $variantSku
+    ];
     
     // Also update size_quantities for backward compatibility
     // Calculate total for this size (sum of all colors)
-    $sizeTotal = array_sum($sizeColorQuantities[$size]);
+    $sizeTotal = 0;
+    foreach ($sizeColorQuantities[$size] as $colorKey => $colorData) {
+        if (is_array($colorData) && isset($colorData['quantity'])) {
+            $sizeTotal += intval($colorData['quantity']);
+        }
+    }
     $sizeQuantities[$size] = $sizeTotal;
 
     // Calculate new total stock from size_color_quantities
     $newStock = 0;
     foreach ($sizeColorQuantities as $sizeKey => $colors) {
         if (is_array($colors)) {
-            $newStock += array_sum($colors);
+            foreach ($colors as $colorKey => $colorData) {
+                if (is_array($colorData) && isset($colorData['quantity'])) {
+                    $newStock += intval($colorData['quantity']);
+                }
+            }
         }
     }
 
@@ -207,11 +228,11 @@ try {
     $updatedSizeColorQuantities = json_encode($sizeColorQuantities);
     $updatedSizeQuantities = json_encode($sizeQuantities);
 
-    // Generate variant SKUs
+    // Generate variant SKUs for all colors
     $variantSkus = [];
     foreach ($sizeColorQuantities as $sizeKey => $colors) {
         if (is_array($colors)) {
-            foreach ($colors as $colorKey => $qty) {
+            foreach ($colors as $colorKey => $colorData) {
                 $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $colorKey));
                 // For simple products (empty sizeKey), use baseSku-COLORCODE format
                 // For products with sizes, use baseSku-SIZE-COLORCODE format
@@ -226,14 +247,6 @@ try {
         }
     }
     $updatedVariantSkus = json_encode($variantSkus);
-
-    $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color));
-    // For simple products (empty size), use baseSku-COLORCODE format
-    if (empty($size)) {
-        $variantSku = $baseSku . '-' . $colorCode;
-    } else {
-        $variantSku = $baseSku . '-' . $size . '-' . $colorCode;
-    }
 
     // Update query - now includes color column
     $updateStmt = $conn->prepare("UPDATE inventory SET size_quantities = ?, variant_skus = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");

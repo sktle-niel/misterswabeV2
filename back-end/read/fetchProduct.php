@@ -43,12 +43,22 @@ $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.st
                 $colorParts = [];
                 foreach ($size_color_quantities as $size => $colors) {
                     if (is_array($colors)) {
-                        $calculated_stock += array_sum($colors);
-                        foreach ($colors as $color => $qty) {
+                        // Handle both old format (number) and new format (object with quantity)
+                        $sizeTotal = 0;
+                        foreach ($colors as $color => $colorData) {
+                            // Check if it's new format (object with 'quantity' key)
+                            if (is_array($colorData) && isset($colorData['quantity'])) {
+                                $qty = intval($colorData['quantity']);
+                            } else {
+                                // Old format - just the quantity number
+                                $qty = intval($colorData);
+                            }
+                            $sizeTotal += $qty;
                             if ($qty > 0) {
                                 $colorParts[] = $color . ' (' . $qty . ')';
                             }
                         }
+                        $calculated_stock += $sizeTotal;
                     }
                 }
                 if (!empty($colorParts)) {

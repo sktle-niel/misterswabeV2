@@ -45,8 +45,16 @@ function renderProducts(productsToRender) {
           .filter(([size, colors]) => colors && typeof colors === 'object')
           .map(([size, colors]) => {
             const colorEntries = Object.entries(colors)
-              .filter(([color, qty]) => qty > 0)
-              .map(([color, qty]) => `${color} (${qty})`);
+              .filter(([color, qty]) => {
+                // Handle both old format (number) and new format (object with quantity)
+                const quantity = (typeof qty === 'object' && qty !== null) ? qty.quantity : qty;
+                return quantity > 0;
+              })
+              .map(([color, qty]) => {
+                // Handle both old format (number) and new format (object with quantity)
+                const quantity = (typeof qty === 'object' && qty !== null) ? qty.quantity : qty;
+                return `${color} (${quantity})`;
+              });
             if (colorEntries.length > 0) {
               return `${size}: ${colorEntries.join(', ')}`;
             }
