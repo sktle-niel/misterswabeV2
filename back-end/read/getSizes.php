@@ -118,27 +118,31 @@ try {
             // Get colors for this size from size_color_quantities
             $colors = isset($sizeColorQuantities[$size]) ? $sizeColorQuantities[$size] : [];
             
-            // If there are colors, sum them; otherwise fall back to size_quantities
-            if (is_array($colors) && count($colors) > 0) {
-                $quantity = array_sum($colors);
-            } else {
-                $quantity = (int)($sizeQuantities[$size] ?? 0);
-            }
-            
-            // Create a variant entry for each color with unique SKU using stored variant_skus
-            // Variant SKU format: baseSku-SIZE-COLORCODE (includes size)
+            // Create a variant entry for each color with unique SKU
+            // New format: { "Color": { "quantity": 10, "sku": "..." } }
+            // Old format: { "Color": 10 }
             $colorVariants = [];
+            $quantity = 0;
             if (is_array($colors)) {
-                foreach ($colors as $color => $colorQty) {
-                    // Use stored variant SKU if available, otherwise generate (baseSku-SIZE-COLORCODE)
-                    $variantKey = $size . '-' . $color;
-                    $variantSku = $variantSkus[$variantKey] ?? ($baseSku . '-' . $size . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color)));
+                foreach ($colors as $color => $colorData) {
+                    // Handle both new format (with SKU) and old format (just quantity)
+                    if (is_array($colorData) && isset($colorData['quantity'])) {
+                        $colorQty = intval($colorData['quantity']);
+                        $variantSku = $colorData['sku'] ?? ($baseSku . '-' . $size . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color)));
+                    } else {
+                        // Old format - just quantity
+                        $colorQty = intval($colorData);
+                        $variantSku = $baseSku . '-' . $size . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color));
+                    }
+                    $quantity += $colorQty;
                     $colorVariants[] = [
                         'sku' => $variantSku,
                         'color' => $color,
                         'quantity' => $colorQty
                     ];
                 }
+            } else {
+                $quantity = (int)($sizeQuantities[$size] ?? 0);
             }
             
             $sizes[] = [

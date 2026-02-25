@@ -31,9 +31,6 @@ function editProduct($data) {
     $priceStr = str_replace(['₱', ','], '', $data['price']);
     $price = floatval($priceStr);
 
-    // SKU remains unchanged
-    $sku = $originalSku;
-
     // Check if simple product (no sizes)
     $isSimpleProduct = isset($data['isSimpleProduct']) && $data['isSimpleProduct'] == '1';
 
@@ -62,13 +59,86 @@ function editProduct($data) {
     if ($fetchResult && $fetchResult->num_rows > 0) {
         $row = $fetchResult->fetch_assoc();
         
-// Get existing data
+        // Get existing data
         $currentSizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
         $existingInformation = $informationColumnExists ? json_decode($row['information'] ?? '{}', true) : [];
         
         // Initialize arrays if null
         if (!is_array($currentSizeColorQuantities)) $currentSizeColorQuantities = [];
         if (!is_array($existingInformation)) $existingInformation = [];
+        
+        // Check if name or category changed - if so, generate new SKU
+        $currentName = $row['name'] ?? '';
+        $currentCategory = $row['category'] ?? '';
+        $sku = $originalSku;
+        
+        if ($name !== $currentName || $categoryName !== $currentCategory) {
+            // Generate new SKU based on new name and category
+            $newSku = generateSKU($name, $categoryName, $price, $newSizes);
+            
+            // Update all variant SKUs in size_color_quantities that use the old base SKU
+            $updatedSizeColorQuantities = [];
+            foreach ($currentSizeColorQuantities as $size => $colors) {
+                $newColors = [];
+                if (is_array($colors)) {
+                    foreach ($colors as $color => $colorData) {
+                        // Check if already in new format (array with 'quantity' key)
+                        if (is_array($colorData) && isset($colorData['quantity'])) {
+                            // Already in new format - just update the SKU
+                            $colorQty = $colorData['quantity'];
+                            $colorCode = strtoupper(substr($color, 0, 3));
+                            $newVariantSku = $newSku . '-' . $size . '-' . $colorCode;
+                            $newColors[$color] = [
+                                'quantity' => $colorQty,
+                                'sku' => $newVariantSku
+                            ];
+                        } else {
+                            // Old format (just quantity number) - convert to new format
+                            $colorQty = is_array($colorData) ? 0 : intval($colorData);
+                            $colorCode = strtoupper(substr($color, 0, 3));
+                            $newVariantSku = $newSku . '-' . $size . '-' . $colorCode;
+                            $newColors[$color] = [
+                                'quantity' => $colorQty,
+                                'sku' => $newVariantSku
+                            ];
+                        }
+                    }
+                }
+                $updatedSizeColorQuantities[$size] = $newColors;
+            }
+            
+            // Also update simple product variant SKUs if it's a simple product
+            if ($isSimpleProduct && !empty($currentSizeColorQuantities)) {
+                $updatedSizeColorQuantities = [];
+                foreach ($currentSizeColorQuantities as $sizeKey => $colors) {
+                    if (is_array($colors)) {
+                        $newColors = [];
+                        foreach ($colors as $color => $colorData) {
+                            // Check if already in new format
+                            if (is_array($colorData) && isset($colorData['quantity'])) {
+                                $colorQty = $colorData['quantity'];
+                            } else {
+                                $colorQty = is_array($colorData) ? 0 : intval($colorData);
+                            }
+                            // For simple products, variant SKU format: NEWBASE-COLORCODE
+                            $colorCode = strtoupper(substr($color, 0, 3));
+                            $newVariantSku = $newSku . '-' . $colorCode;
+                            $newColors[$color] = [
+                                'quantity' => $colorQty,
+                                'sku' => $newVariantSku
+                            ];
+                        }
+                        $updatedSizeColorQuantities[$sizeKey] = $newColors;
+                    }
+                }
+            }
+            
+            $sku = $newSku;
+        } else {
+            // SKU remains unchanged
+            $sku = $originalSku;
+            $updatedSizeColorQuantities = $currentSizeColorQuantities;
+        }
         
         // Build product information (for simple products)
         $productInformation = $existingInformation;
@@ -90,11 +160,11 @@ function editProduct($data) {
         $informationJson = json_encode($productInformation);
         
 // Build updated size quantities from size_color_quantities
-        $updatedSizeColorQuantities = [];
+        $finalSizeColorQuantities = [];
         
         if ($isSimpleProduct) {
             // Simple product - preserve existing size data and just set the quantity
-            $updatedSizeColorQuantities = $currentSizeColorQuantities;
+            $finalSizeColorQuantities = $updatedSizeColorQuantities;
             // Only update stock if a valid quantity is provided (> 0), otherwise preserve existing stock
             if ($simpleQuantity > 0) {
                 $stock = $simpleQuantity;
@@ -106,18 +176,25 @@ function editProduct($data) {
             // Product with sizes - keep existing quantities from size_color_quantities
             foreach ($newSizes as $size) {
                 // Keep existing color quantities for this size if available
-                if (isset($currentSizeColorQuantities[$size])) {
-                    $updatedSizeColorQuantities[$size] = $currentSizeColorQuantities[$size];
+                if (isset($updatedSizeColorQuantities[$size])) {
+                    $finalSizeColorQuantities[$size] = $updatedSizeColorQuantities[$size];
                 } else {
-                    $updatedSizeColorQuantities[$size] = [];
+                    $finalSizeColorQuantities[$size] = [];
                 }
             }
             
             // Calculate stock from size_color_quantities
             $stock = 0;
-            foreach ($updatedSizeColorQuantities as $size => $colors) {
+            foreach ($finalSizeColorQuantities as $size => $colors) {
                 if (is_array($colors)) {
-                    $stock += array_sum($colors);
+                    foreach ($colors as $color => $colorData) {
+                        if (is_array($colorData) && isset($colorData['quantity'])) {
+                            $stock += intval($colorData['quantity']);
+                        } else {
+                            // Handle old format where colorData is just the quantity
+                            $stock += intval($colorData);
+                        }
+                    }
                 }
             }
             
@@ -137,7 +214,7 @@ function editProduct($data) {
         }
         
         $sizeString = implode(',', $newSizes);
-        $sizeColorQuantitiesJson = json_encode($updatedSizeColorQuantities);
+        $sizeColorQuantitiesJson = json_encode($finalSizeColorQuantities);
     } else {
         return ['success' => false, 'message' => 'Product not found'];
     }
@@ -182,43 +259,116 @@ function editProduct($data) {
         }
     }
 
-// Build update query 
-    $updateFields = [
-        "name = '$name'",
-        "category = '$categoryName'",
-        "price = $price",
-        "stock = $stock",
-        "size_color_quantities = '$sizeColorQuantitiesJson'",
-        "status = '$status'"
-    ];
+    // Check if SKU changed - if so, we need to update the product with the new SKU
+    $skuChanged = ($sku !== $originalSku);
     
-    // Add information field only if column exists
-    if ($informationColumnExists) {
-        $updateFields[] = "information = '$informationJson'";
-    }
-
-    if (!empty($images)) {
-        $imagesJson = json_encode($images);
-        $updateFields[] = "images = '$imagesJson'";
-    }
-
-    $updateFieldsStr = implode(', ', $updateFields);
-    $sql = "UPDATE inventory SET $updateFieldsStr WHERE sku = '$originalSku'";
-
-if ($conn->query($sql) === TRUE) {
-        return [
-            'success' => true, 
-            'message' => 'Product updated successfully', 
-            'sku' => $sku, 
-            'images' => $images,
-            'stock' => $stock,
-            'status' => $status,
-            'size_color_quantities' => $updatedSizeColorQuantities
+    if ($skuChanged) {
+        // Get the existing ID from the product
+        $existingId = $row['id'] ?? '';
+        
+        // Get existing color from the row
+        $existingColor = $row['color'] ?? '[]';
+        $colorEscaped = mysqli_real_escape_string($conn, $existingColor);
+        
+        // Get existing size_quantities from the row
+        $existingSizeQuantities = $row['size_quantities'] ?? '{}';
+        $sizeQuantitiesEscaped = mysqli_real_escape_string($conn, $existingSizeQuantities);
+        
+        // Get existing images from the row
+        $existingImages = $row['images'] ?? '[]';
+        $imagesEscaped = mysqli_real_escape_string($conn, $existingImages);
+        
+        // First, insert a new product with the new SKU (keeping the same ID)
+        $insertFields = [
+            "id = '$existingId'",
+            "name = '$name'",
+            "sku = '$sku'",
+            "category = '$categoryName'",
+            "price = $price",
+            "stock = $stock",
+            "size = '$sizeString'",
+            "size_quantities = '$sizeQuantitiesEscaped'",
+            "size_color_quantities = '$sizeColorQuantitiesJson'",
+            "color = '$colorEscaped'",
+            "images = '$imagesEscaped'",
+            "status = '$status'"
         ];
+        
+        // Add information field only if column exists
+        if ($informationColumnExists) {
+            $insertFields[] = "information = '$informationJson'";
+        }
+
+        if (!empty($images)) {
+            $imagesJson = json_encode($images);
+            $insertFields[] = "images = '$imagesJson'";
+        }
+
+        $insertFieldsStr = implode(', ', $insertFields);
+        
+        // First delete the old product
+        $conn->query("DELETE FROM inventory WHERE sku = '$originalSku'");
+        
+        // Then insert the new product with updated SKU
+        $copySql = "INSERT INTO inventory SET $insertFieldsStr";
+        
+        if ($conn->query($copySql) === TRUE) {
+            
+            return [
+                'success' => true, 
+                'message' => 'Product updated successfully', 
+                'sku' => $sku, 
+                'images' => $images,
+                'stock' => $stock,
+                'status' => $status,
+                'size_color_quantities' => $finalSizeColorQuantities,
+                'skuChanged' => true,
+                'oldSku' => $originalSku
+            ];
+        } else {
+            error_log('Database error: ' . $conn->error);
+            error_log('SQL: ' . $copySql);
+            return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+        }
     } else {
-        error_log('Database error: ' . $conn->error);
-        error_log('SQL: ' . $sql);
-        return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+        // SKU unchanged - regular update
+        $updateFields = [
+            "name = '$name'",
+            "category = '$categoryName'",
+            "price = $price",
+            "stock = $stock",
+            "size_color_quantities = '$sizeColorQuantitiesJson'",
+            "status = '$status'"
+        ];
+        
+        // Add information field only if column exists
+        if ($informationColumnExists) {
+            $updateFields[] = "information = '$informationJson'";
+        }
+
+        if (!empty($images)) {
+            $imagesJson = json_encode($images);
+            $updateFields[] = "images = '$imagesJson'";
+        }
+
+        $updateFieldsStr = implode(', ', $updateFields);
+        $sql = "UPDATE inventory SET $updateFieldsStr WHERE sku = '$originalSku'";
+
+        if ($conn->query($sql) === TRUE) {
+            return [
+                'success' => true, 
+                'message' => 'Product updated successfully', 
+                'sku' => $sku, 
+                'images' => $images,
+                'stock' => $stock,
+                'status' => $status,
+                'size_color_quantities' => $finalSizeColorQuantities
+            ];
+        } else {
+            error_log('Database error: ' . $conn->error);
+            error_log('SQL: ' . $sql);
+            return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+        }
     }
 }
 
@@ -236,7 +386,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif (empty($_POST['price'])) {
             $response = ['success' => false, 'message' => 'Price is required'];
         } else {
-$data = [
+            $data = [
                 'originalSku' => $_POST['originalSku'],
                 'name' => $_POST['name'],
                 'category' => $_POST['category'],
