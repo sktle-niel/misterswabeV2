@@ -33,17 +33,43 @@
                     <p style="color: #ef4444; font-size: 15px;">Failed to load product sizes. Please try again.</p>
                 </div>
 
-                <!-- No Sizes State -->
+                <!-- No Sizes State - With Toggle -->
                 <div id="sizesEmptyState" style="text-align: center; padding: 20px; display: none;">
-                    <p style="color: #6b7280; font-size: 15px; margin-bottom: 16px;">This product has no sizes or colors defined.</p>
+                    <!-- Toggle for Simple Product (No Sizes) vs Product with Colors -->
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px;">
+                        <span id="toggleLabelText" style="font-size: 14px; color: #6b7280;">Product has colors</span>
+                        <label style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                            <input type="checkbox" id="noSizeColorToggle" onchange="toggleNoSizeMode()" style="opacity: 0; width: 0; height: 0;">
+                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 34px;"></span>
+                            <span style="position: absolute; content: ''; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%;"></span>
+                        </label>
+                        <span id="toggleLabelSimple" style="font-size: 14px; color: #6b7280; display: none;">Simple product (no colors)</span>
+                    </div>
                     
-                    <!-- Direct Stock Input -->
-                    <div id="simpleStockInput">
+                    <!-- Direct Stock Input (for simple products - no colors) -->
+                    <div id="simpleStockInput" style="display: none;">
+                        <p style="color: #6b7280; font-size: 14px; margin-bottom: 12px;">This product has no sizes or colors defined.</p>
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
                             Enter Stock
                         </label>
                         <input type="number" id="simpleStockQuantity" min="0" value="0" 
                             style="width: 200px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; text-align: center;">
+                    </div>
+                    
+                    <!-- Add Colors Section (for products with colors but no sizes) -->
+                    <div id="addColorsSection">
+                        <p style="color: #6b7280; font-size: 14px; margin-bottom: 12px;">Add colors for this product (no sizes):</p>
+                        <div id="colorsNoSizeContainer" style="text-align: left; max-width: 300px; margin: 0 auto;">
+                            <!-- Colors will be added here -->
+                        </div>
+                        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
+                            <input type="text" id="newColorNoSize" placeholder="Add new color" 
+                                style="flex: 1; max-width: 200px; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px;">
+                            <button type="button" onclick="addColorNoSize()" 
+                                style="padding: 8px 16px; background: black; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500;">
+                                Add Color
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -93,7 +119,90 @@ function closeAddQuantityModal() {
   document.getElementById("sizesEmptyState").style.display = "none";
   document.getElementById("sizesContainer").innerHTML = "";
   document.getElementById('simpleStockQuantity').value = '0';
+  document.getElementById('noSizeColorToggle').checked = false;
+  document.getElementById('simpleStockInput').style.display = 'none';
+  document.getElementById('addColorsSection').style.display = 'block';
+  document.getElementById('toggleLabelText').style.display = 'inline';
+  document.getElementById('toggleLabelSimple').style.display = 'none';
+  document.getElementById('colorsNoSizeContainer').innerHTML = '';
+  document.getElementById('newColorNoSize').value = '';
   window.currentStock = 0;
+  window.noSizeMode = false;
+}
+
+// Toggle between simple product (no colors) and product with colors
+function toggleNoSizeMode() {
+  const toggle = document.getElementById('noSizeColorToggle');
+  const simpleStockInput = document.getElementById('simpleStockInput');
+  const addColorsSection = document.getElementById('addColorsSection');
+  const toggleLabelText = document.getElementById('toggleLabelText');
+  const toggleLabelSimple = document.getElementById('toggleLabelSimple');
+  
+  window.noSizeMode = toggle.checked;
+  
+  if (toggle.checked) {
+    // Simple product mode - show stock input
+    simpleStockInput.style.display = 'block';
+    addColorsSection.style.display = 'none';
+    toggleLabelText.style.display = 'none';
+    toggleLabelSimple.style.display = 'inline';
+  } else {
+    // Product with colors mode - show colors input
+    simpleStockInput.style.display = 'none';
+    addColorsSection.style.display = 'block';
+    toggleLabelText.style.display = 'inline';
+    toggleLabelSimple.style.display = 'none';
+  }
+}
+
+// Add color for product with no sizes
+function addColorNoSize() {
+  const input = document.getElementById('newColorNoSize');
+  const colorName = input.value.trim();
+  
+  if (!colorName) {
+    showInvalidMessage('Please enter a color name');
+    return;
+  }
+  
+  // Check if color already exists
+  const container = document.getElementById('colorsNoSizeContainer');
+  const existingColors = container.querySelectorAll('.color-no-size-input');
+  for (let div of existingColors) {
+    if (div.dataset.color.toLowerCase() === colorName.toLowerCase()) {
+      showInvalidMessage('This color already exists');
+      return;
+    }
+  }
+  
+  // Add new color input
+  const colorDiv = document.createElement('div');
+  colorDiv.style.display = 'flex';
+  colorDiv.style.alignItems = 'center';
+  colorDiv.style.gap = '8px';
+  colorDiv.style.marginBottom = '8px';
+  colorDiv.style.padding = '8px';
+  colorDiv.style.background = '#f8fafc';
+  colorDiv.style.borderRadius = '6px';
+  
+  colorDiv.innerHTML = `
+    <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${colorName}</span>
+    <input type="number" 
+           class="color-no-size-input" 
+           data-color="${colorName}"
+           min="0" 
+           value="0"
+           placeholder="Qty"
+           style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+    <button type="button" 
+            onclick="this.parentElement.remove()"
+            style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
+      ✕
+    </button>
+  `;
+  
+  container.appendChild(colorDiv);
+  input.value = '';
 }
 
 function closeAddQuantityModalOnOverlay(event) {
@@ -155,6 +264,12 @@ function fetchProductSizes(baseSku) {
             // No sizes (simple product) - show the stock input
             document.getElementById("sizesLoadingState").style.display = "none";
             document.getElementById("sizesEmptyState").style.display = "block";
+            
+            // Render existing colors for simple products (no sizes)
+            const simpleProduct = data.sizes[0];
+            if (simpleProduct && simpleProduct.color_variants && simpleProduct.color_variants.length > 0) {
+              renderExistingNoSizeColors(simpleProduct.color_variants);
+            }
           }
         } else if (data.success && (!data.sizes || data.sizes.length === 0)) {
           // Even if no sizes returned, show the empty state
@@ -173,6 +288,46 @@ function fetchProductSizes(baseSku) {
       document.getElementById("sizesLoadingState").style.display = "none";
       document.getElementById("sizesErrorState").style.display = "block";
     });
+}
+
+// Render existing colors for products with no sizes
+function renderExistingNoSizeColors(colorVariants) {
+  const container = document.getElementById('colorsNoSizeContainer');
+  if (!container) return;
+  
+  container.innerHTML = '';
+  
+  colorVariants.forEach(variant => {
+    const colorDiv = document.createElement('div');
+    colorDiv.style.display = 'flex';
+    colorDiv.style.alignItems = 'center';
+    colorDiv.style.gap = '8px';
+    colorDiv.style.marginBottom = '8px';
+    colorDiv.style.padding = '8px';
+    colorDiv.style.background = '#f8fafc';
+    colorDiv.style.borderRadius = '6px';
+    
+    const qty = variant.quantity || 0;
+    
+    colorDiv.innerHTML = `
+      <span style="flex: 1; font-size: 14px; color: #374151; font-weight: 500;">${variant.color}</span>
+      <input type="number" 
+             class="color-no-size-input" 
+             data-color="${variant.color}"
+             data-sku="${variant.sku || ''}"
+             min="0" 
+             value="${qty}"
+             placeholder="Qty"
+             style="width: 80px; padding: 8px; border: 2px solid #e5e7eb; border-radius: 6px; font-size: 14px; text-align: center;">
+      <button type="button" 
+              onclick="this.parentElement.remove()"
+              style="padding: 4px 8px; background: #fee2e2; color: #dc2626; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;">
+        ✕
+      </button>
+    `;
+    
+    container.appendChild(colorDiv);
+  });
 }
 
 function renderSizeColorInputs(sizes) {
@@ -462,23 +617,56 @@ function addQuantity() {
   const sizesEmptyState = document.getElementById("sizesEmptyState");
   const sizesErrorState = document.getElementById("sizesErrorState");
   const simpleStockQuantity = document.getElementById("simpleStockQuantity");
+  const noSizeColorToggle = document.getElementById("noSizeColorToggle");
   
   if (!form.checkValidity()) {
     form.reportValidity();
     return;
   }
   
-  // Check if empty state is shown (direct stock input for products with no sizes)
+  // Check if empty state is shown
   if (sizesEmptyState.style.display === "block") {
-    const quantity = parseInt(simpleStockQuantity.value) || 0;
-    if (quantity < 0) {
-      showInvalidMessage("Please enter a valid quantity");
+    // Check which mode we're in based on toggle
+    if (noSizeColorToggle.checked) {
+      // Simple product mode (no colors) - direct stock input
+      const quantity = parseInt(simpleStockQuantity.value) || 0;
+      if (quantity < 0) {
+        showInvalidMessage("Please enter a valid quantity");
+        return;
+      }
+      // Handle simple stock update
+      handleSimpleStockUpdate(quantity);
+      return;
+    } else {
+      // Product with colors but no sizes - handle color quantities
+      const colorInputs = document.querySelectorAll('.color-no-size-input');
+      const updates = [];
+      
+      colorInputs.forEach((input) => {
+        const amount = parseInt(input.value) || 0;
+        if (amount >= 0) {
+          updates.push({
+            color: input.dataset.color,
+            amount: amount
+          });
+        }
+      });
+      
+      if (updates.length === 0) {
+        showInvalidMessage("Please add at least one color and quantity");
+        return;
+      }
+      
+      // Disable submit button
+      const submitBtn = document.getElementById("addQuantitySubmitBtn");
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = "0.6";
+      submitBtn.style.cursor = "not-allowed";
+      
+      // Process all color updates
+      processNoSizeColorUpdates(updates, 0, submitBtn);
       return;
     }
-    
-    // Handle simple stock update
-    handleSimpleStockUpdate(quantity);
-    return;
   }
   
   // Check if there was an error loading sizes
@@ -578,6 +766,61 @@ function processQuantityUpdates(updates, index, submitBtn) {
       submitBtn.style.opacity = "1";
       submitBtn.style.cursor = "pointer";
       showInvalidMessage("Error adding quantity");
+    });
+}
+
+// Process color updates for products with no sizes
+function processNoSizeColorUpdates(updates, index, submitBtn) {
+  const baseSku = window.currentBaseSku;
+  
+  if (index >= updates.length) {
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = "1";
+    submitBtn.style.cursor = "pointer";
+    
+    const successMessage = document.getElementById("successMessage");
+    const successText = successMessage.querySelector(".success-text");
+    successText.textContent = "Colors Added Successfully!";
+    successMessage.style.display = "block";
+
+    setTimeout(() => {
+      successMessage.style.display = "none";
+    }, 3000);
+
+    closeAddQuantityModal();
+    window.location.reload();
+    return;
+  }
+  
+  const update = updates[index];
+  
+  fetch("../../back-end/update/addQuantity.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "sku=" + encodeURIComponent(baseSku) + 
+          "&amount=" + encodeURIComponent(update.amount) + 
+          "&size=" + encodeURIComponent('') + 
+          "&color=" + encodeURIComponent(update.color) +
+          "&noSizeProduct=true",
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        processNoSizeColorUpdates(updates, index + 1, submitBtn);
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = "1";
+        submitBtn.style.cursor = "pointer";
+        showInvalidMessage("Error: " + (data.message || "Unknown error"));
+      }
+    })
+    .catch((error) => {
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = "1";
+      submitBtn.style.cursor = "pointer";
+      showInvalidMessage("Error adding color");
     });
 }
 </script>
