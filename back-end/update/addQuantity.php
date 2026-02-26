@@ -130,6 +130,10 @@ if ($simpleStock === 'true' || $simpleStock === true) {
         
         $baseSku = $sku;
         
+        // Check if this is a replace stock operation
+        $replaceStock = $_POST['replaceStock'] ?? 'false';
+        $replaceStock = ($replaceStock === 'true' || $replaceStock === true);
+        
         // Get current stock
         $stmt = $conn->prepare("SELECT stock FROM inventory WHERE sku = ?");
         $stmt->bind_param("s", $baseSku);
@@ -142,8 +146,15 @@ if ($simpleStock === 'true' || $simpleStock === true) {
         }
         
         $row = $result->fetch_assoc();
-        $currentStock = intval($row['stock'] ?? 0);
-        $newStock = $currentStock + $amount;
+        
+        // If replaceStock is true, use the entered amount as the new stock
+        // Otherwise, add the amount to current stock
+        if ($replaceStock) {
+            $newStock = $amount;
+        } else {
+            $currentStock = intval($row['stock'] ?? 0);
+            $newStock = $currentStock + $amount;
+        }
         
         // Determine new status based on stock
         if ($newStock == 0) {

@@ -25,7 +25,6 @@
                 
                 <!-- Sizes Container -->
                 <div id="sizesContainer" style="display: none;">
-                    <!-- Sizes with colors will be dynamically inserted here -->
                 </div>
 
                 <!-- Error State -->
@@ -35,18 +34,18 @@
 
                 <!-- No Sizes State - With Toggle -->
                 <div id="sizesEmptyState" style="text-align: center; padding: 20px; display: none;">
-                    <!-- Toggle for Simple Product (No Sizes) vs Product with Colors -->
+                    <!-- Toggle with Labels - Enter Stock | Toggle | Enter Colors -->
                     <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px;">
-                        <span id="toggleLabelText" style="font-size: 14px; color: #6b7280;">Product has colors</span>
-                        <label style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                        <span id="toggleLabelStock" style="font-size: 14px; color: #6b7280; font-weight: 500; display: none;">Enter Stock</span>
+                        <label style="position: relative; display: inline-block; width: 56px; height: 30px; margin: 0;">
                             <input type="checkbox" id="noSizeColorToggle" onchange="toggleNoSizeMode()" style="opacity: 0; width: 0; height: 0;">
-                            <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: 0.4s; border-radius: 34px;"></span>
-                            <span style="position: absolute; content: ''; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%;"></span>
+                            <span id="toggleSlider" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #9ca3af; transition: 0.4s; border-radius: 34px;"></span>
+                            <span id="toggleDot" style="position: absolute; content: ''; height: 24px; width: 24px; left: 3px; bottom: 3px; background-color: white; transition: 0.4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></span>
                         </label>
-                        <span id="toggleLabelSimple" style="font-size: 14px; color: #6b7280; display: none;">Simple product (no colors)</span>
+                        <span id="toggleLabelColors" style="font-size: 14px; color: #6b7280; font-weight: 500;">Enter Colors</span>
                     </div>
                     
-                    <!-- Direct Stock Input (for simple products - no colors) -->
+                    <!-- Direct Stock Input (for no colors) -->
                     <div id="simpleStockInput" style="display: none;">
                         <p style="color: #6b7280; font-size: 14px; margin-bottom: 12px;">This product has no sizes or colors defined.</p>
                         <label style="display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #374151;">
@@ -56,11 +55,10 @@
                             style="width: 200px; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; text-align: center;">
                     </div>
                     
-                    <!-- Add Colors Section (for products with colors but no sizes) -->
+                    <!-- Add Colors Section -->
                     <div id="addColorsSection">
                         <p style="color: #6b7280; font-size: 14px; margin-bottom: 12px;">Add colors for this product (no sizes):</p>
                         <div id="colorsNoSizeContainer" style="text-align: left; max-width: 300px; margin: 0 auto;">
-                            <!-- Colors will be added here -->
                         </div>
                         <div style="display: flex; gap: 8px; justify-content: center; margin-top: 12px;">
                             <input type="text" id="newColorNoSize" placeholder="Add new color" 
@@ -106,8 +104,6 @@
 </style>
 
 <script>
-// Add Quantity Modal Functions
-// Store current stock globally
 window.currentStock = 0;
 
 function closeAddQuantityModal() {
@@ -122,40 +118,94 @@ function closeAddQuantityModal() {
   document.getElementById('noSizeColorToggle').checked = false;
   document.getElementById('simpleStockInput').style.display = 'none';
   document.getElementById('addColorsSection').style.display = 'block';
-  document.getElementById('toggleLabelText').style.display = 'inline';
-  document.getElementById('toggleLabelSimple').style.display = 'none';
   document.getElementById('colorsNoSizeContainer').innerHTML = '';
   document.getElementById('newColorNoSize').value = '';
+  document.getElementById('toggleLabelColors').style.display = 'inline';
+  document.getElementById('toggleLabelStock').style.display = 'none';
   window.currentStock = 0;
   window.noSizeMode = false;
+  
+  const toggle = document.getElementById('noSizeColorToggle');
+  const toggleSlider = document.getElementById('toggleSlider');
+  const toggleDot = document.getElementById('toggleDot');
+  
+  toggle.disabled = false;
+  toggle.style.opacity = '1';
+  toggle.style.pointerEvents = 'auto';
+  
+  if (toggleSlider) {
+    toggleSlider.style.backgroundColor = '#9ca3af';
+  }
+  if (toggleDot) {
+    toggleDot.style.transform = 'translateX(0)';
+  }
 }
 
-// Toggle between simple product (no colors) and product with colors
+// Toggle between Enter Colors and Enter Stock
 function toggleNoSizeMode() {
   const toggle = document.getElementById('noSizeColorToggle');
+  const toggleSlider = document.getElementById('toggleSlider');
+  const toggleDot = document.getElementById('toggleDot');
+  const toggleLabelColors = document.getElementById('toggleLabelColors');
+  const toggleLabelStock = document.getElementById('toggleLabelStock');
   const simpleStockInput = document.getElementById('simpleStockInput');
   const addColorsSection = document.getElementById('addColorsSection');
-  const toggleLabelText = document.getElementById('toggleLabelText');
-  const toggleLabelSimple = document.getElementById('toggleLabelSimple');
+  
+  if (toggle.disabled) {
+    toggle.checked = !toggle.checked;
+    return;
+  }
   
   window.noSizeMode = toggle.checked;
   
   if (toggle.checked) {
-    // Simple product mode - show stock input
+    // Toggle ON (green) - Show Enter Stock on left
+    if (toggleSlider) toggleSlider.style.backgroundColor = '#10b981';
+    if (toggleDot) toggleDot.style.transform = 'translateX(26px)';
+    if (toggleLabelStock) toggleLabelStock.style.display = 'inline';
+    if (toggleLabelColors) toggleLabelColors.style.display = 'none';
     simpleStockInput.style.display = 'block';
     addColorsSection.style.display = 'none';
-    toggleLabelText.style.display = 'none';
-    toggleLabelSimple.style.display = 'inline';
   } else {
-    // Product with colors mode - show colors input
+    // Toggle OFF (gray) - Show Enter Colors on right
+    if (toggleSlider) toggleSlider.style.backgroundColor = '#9ca3af';
+    if (toggleDot) toggleDot.style.transform = 'translateX(0)';
+    if (toggleLabelStock) toggleLabelStock.style.display = 'none';
+    if (toggleLabelColors) toggleLabelColors.style.display = 'inline';
     simpleStockInput.style.display = 'none';
     addColorsSection.style.display = 'block';
-    toggleLabelText.style.display = 'inline';
-    toggleLabelSimple.style.display = 'none';
   }
 }
 
-// Add color for product with no sizes
+// Disable the toggle if product already has colors or stock entered
+function disableNoSizeToggle(reason) {
+  const toggle = document.getElementById('noSizeColorToggle');
+  const toggleSlider = document.getElementById('toggleSlider');
+  const toggleDot = document.getElementById('toggleDot');
+  const toggleLabelColors = document.getElementById('toggleLabelColors');
+  const toggleLabelStock = document.getElementById('toggleLabelStock');
+  
+  toggle.disabled = true;
+  toggle.style.opacity = '1';
+  toggle.style.pointerEvents = 'none';
+  
+  if (toggleSlider) {
+    toggleSlider.style.backgroundColor = '#d1d5db';
+    toggleSlider.style.cursor = 'not-allowed';
+  }
+  if (toggleDot) {
+    toggleDot.style.cursor = 'not-allowed';
+  }
+  
+  if (reason === 'hasColors') {
+    toggleLabelColors.textContent = 'Colors already set';
+    toggleLabelStock.textContent = 'Colors already set';
+  } else if (reason === 'hasStock') {
+    toggleLabelColors.textContent = 'Stock already entered';
+    toggleLabelStock.textContent = 'Stock already entered';
+  }
+}
+
 function addColorNoSize() {
   const input = document.getElementById('newColorNoSize');
   const colorName = input.value.trim();
@@ -165,7 +215,6 @@ function addColorNoSize() {
     return;
   }
   
-  // Check if color already exists
   const container = document.getElementById('colorsNoSizeContainer');
   const existingColors = container.querySelectorAll('.color-no-size-input');
   for (let div of existingColors) {
@@ -175,7 +224,6 @@ function addColorNoSize() {
     }
   }
   
-  // Add new color input
   const colorDiv = document.createElement('div');
   colorDiv.style.display = 'flex';
   colorDiv.style.alignItems = 'center';
@@ -216,63 +264,90 @@ function openAddQuantityModal(sku) {
   if (!product) return;
 
   const baseSku = sku;
-  
-  // Store the current stock from the products array as fallback
   window.currentStock = parseInt(product.stock) || 0;
   
   document.getElementById("addQuantityBaseSku").value = baseSku;
   document.getElementById("addQuantityModalOverlay").style.display = "flex";
   
-  // Show loading state
   document.getElementById("sizesLoadingState").style.display = "block";
   document.getElementById("sizesContainer").style.display = "none";
   document.getElementById("sizesErrorState").style.display = "none";
   document.getElementById("sizesEmptyState").style.display = "none";
   
-  // Store baseSku globally for use in addColorForSize
+  // Reset toggle to default
+  const toggle = document.getElementById('noSizeColorToggle');
+  const toggleSlider = document.getElementById('toggleSlider');
+  const toggleDot = document.getElementById('toggleDot');
+  const toggleLabelColors = document.getElementById('toggleLabelColors');
+  const toggleLabelStock = document.getElementById('toggleLabelStock');
+  
+  toggle.checked = false;
+  toggle.disabled = false;
+  if (toggleSlider) toggleSlider.style.backgroundColor = '#9ca3af';
+  if (toggleDot) toggleDot.style.transform = 'translateX(0)';
+  if (toggleLabelColors) {
+    toggleLabelColors.style.display = 'inline';
+    toggleLabelColors.textContent = 'Enter Colors';
+  }
+  if (toggleLabelStock) {
+    toggleLabelStock.style.display = 'none';
+    toggleLabelStock.textContent = 'Enter Stock';
+  }
+  
   window.currentBaseSku = baseSku;
   fetchProductSizes(baseSku);
 }
 
 function fetchProductSizes(baseSku) {
   fetch("../../back-end/read/getSizes.php?sku=" + encodeURIComponent(baseSku))
-    .then((response) => {
-      return response.text();
-    })
+    .then((response) => { return response.text(); })
     .then((text) => {
       try {
         const data = JSON.parse(text);
         
-        // Get currentStock from the response - check first size
         if (data.success && data.sizes && data.sizes.length > 0 && data.sizes[0].currentStock !== undefined) {
           window.currentStock = data.sizes[0].currentStock;
         }
         
-        // ALWAYS set the placeholder with the current stock value
         document.getElementById("simpleStockQuantity").placeholder = "Current stock: " + window.currentStock;
         
         if (data.success && data.sizes && data.sizes.length > 0) {
-          // SIMPLE LOGIC: If product has sizes (is not a simple product), show size/color inputs
           const hasSizes = data.sizes.some(s => !s.isSimpleProduct && s.size && s.size.trim() !== '');
           
           if (hasSizes) {
-            // Product has sizes - show the size/color inputs
             renderSizeColorInputs(data.sizes);
             document.getElementById("sizesLoadingState").style.display = "none";
             document.getElementById("sizesContainer").style.display = "block";
           } else {
-            // No sizes (simple product) - show the stock input
             document.getElementById("sizesLoadingState").style.display = "none";
             document.getElementById("sizesEmptyState").style.display = "block";
             
-            // Render existing colors for simple products (no sizes)
             const simpleProduct = data.sizes[0];
             if (simpleProduct && simpleProduct.color_variants && simpleProduct.color_variants.length > 0) {
               renderExistingNoSizeColors(simpleProduct.color_variants);
+              disableNoSizeToggle('hasColors');
+              document.getElementById('simpleStockInput').style.display = 'none';
+              document.getElementById('addColorsSection').style.display = 'block';
+            } else {
+              if (window.currentStock > 0) {
+                disableNoSizeToggle('hasStock');
+                document.getElementById('simpleStockInput').style.display = 'block';
+                document.getElementById('addColorsSection').style.display = 'none';
+                document.getElementById('noSizeColorToggle').checked = true;
+                document.getElementById('simpleStockQuantity').value = window.currentStock;
+                const toggleSlider = document.getElementById('toggleSlider');
+                const toggleDot = document.getElementById('toggleDot');
+                const toggleLabelColors = document.getElementById('toggleLabelColors');
+                const toggleLabelStock = document.getElementById('toggleLabelStock');
+                if (toggleSlider) toggleSlider.style.backgroundColor = '#10b981';
+                if (toggleDot) toggleDot.style.transform = 'translateX(26px)';
+                if (toggleLabelColors) toggleLabelColors.style.display = 'none';
+                if (toggleLabelStock) toggleLabelStock.style.display = 'inline';
+                window.noSizeMode = true;
+              }
             }
           }
         } else if (data.success && (!data.sizes || data.sizes.length === 0)) {
-          // Even if no sizes returned, show the empty state
           document.getElementById("sizesLoadingState").style.display = "none";
           document.getElementById("sizesEmptyState").style.display = "block";
         } else {
@@ -290,7 +365,6 @@ function fetchProductSizes(baseSku) {
     });
 }
 
-// Render existing colors for products with no sizes
 function renderExistingNoSizeColors(colorVariants) {
   const container = document.getElementById('colorsNoSizeContainer');
   if (!container) return;
@@ -334,11 +408,7 @@ function renderSizeColorInputs(sizes) {
   const container = document.getElementById("sizesContainer");
   container.innerHTML = "";
   
-  // Get current stock from first size
-  const currentStock = sizes[0]?.currentStock || 0;
-  
-  sizes.forEach((sizeData, index) => {
-    // Skip simple products in the sizes container
+  sizes.forEach((sizeData) => {
     if (sizeData.isSimpleProduct || !sizeData.size || sizeData.size.trim() === '') {
       return;
     }
@@ -350,18 +420,15 @@ function renderSizeColorInputs(sizes) {
     sizeDiv.style.borderRadius = "8px";
     sizeDiv.style.border = "1px solid #e2e8f0";
     
-    // Get existing colors for this size from size_quantities
     let existingColors = {};
     if (sizeData.size_quantities && typeof sizeData.size_quantities === 'object') {
       existingColors = sizeData.size_quantities;
     }
     
-    // Check if color_variants exist (new format with variant SKUs)
     let colorsHtml = '';
     const colorVariants = sizeData.color_variants || [];
     
     if (colorVariants.length > 0) {
-      // Use color variants with their own SKUs
       colorVariants.forEach(variant => {
         const qty = variant.quantity || 0;
         colorsHtml += `
@@ -386,10 +453,8 @@ function renderSizeColorInputs(sizes) {
         `;
       });
     } else if (Object.keys(existingColors).length > 0) {
-      // Fallback to old format without color variants
       Object.keys(existingColors).forEach(color => {
         const qty = existingColors[color] || 0;
-        // Generate variant SKU for old format
         const colorCode = color.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
         const variantSku = sizeData.sku + '-' + sizeData.size + '-' + colorCode;
         colorsHtml += `
@@ -424,13 +489,9 @@ function renderSizeColorInputs(sizes) {
           Total: <span id="total-${sizeData.size.replace(/\s/g, '-')}">${Object.values(existingColors).reduce((a, b) => a + b, 0)}</span>
         </span>
       </div>
-      
-      <!-- Existing Colors -->
       <div id="colors-${sizeData.size.replace(/\s/g, '-')}" style="margin-bottom: 12px;">
         ${colorsHtml}
       </div>
-      
-      <!-- Add New Color -->
       <div style="display: flex; gap: 8px;">
         <input type="text" 
                id="newColor-${sizeData.size.replace(/\s/g, '-')}"
@@ -458,7 +519,6 @@ function addColorForSize(size, sku) {
     return;
   }
   
-  // Check if color already exists
   const colorsContainer = document.getElementById('colors-' + size.replace(/\s/g, '-'));
   const existingInputs = colorsContainer.querySelectorAll('.color-quantity-input');
   for (let input of existingInputs) {
@@ -468,12 +528,10 @@ function addColorForSize(size, sku) {
     }
   }
   
-  // Use the base SKU stored globally and create proper variant SKU: baseSku-SIZE-COLORCODE
   const baseSku = window.currentBaseSku || sku;
   const colorCode = colorName.substring(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, '');
   const variantSku = baseSku + '-' + size + '-' + colorCode;
   
-  // Add new color input
   const newColorDiv = document.createElement('div');
   newColorDiv.style.display = 'flex';
   newColorDiv.style.alignItems = 'center';
@@ -503,7 +561,6 @@ function addColorForSize(size, sku) {
   colorsContainer.appendChild(newColorDiv);
   colorInput.value = '';
   
-  // Add event listener to update total
   const qtyInput = newColorDiv.querySelector('.color-quantity-input');
   qtyInput.addEventListener('input', function() {
     updateSizeTotal(size);
@@ -511,7 +568,6 @@ function addColorForSize(size, sku) {
 }
 
 function removeColor(size, color, sku) {
-  // Remove the color input element
   const colorsContainer = document.getElementById('colors-' + size.replace(/\s/g, '-'));
   const inputs = colorsContainer.querySelectorAll('.color-quantity-input');
   
@@ -522,7 +578,6 @@ function removeColor(size, color, sku) {
     }
   }
   
-  // Update the total
   updateSizeTotal(size);
 }
 
@@ -544,22 +599,23 @@ function handleSimpleStockUpdate(quantity) {
   const baseSku = window.currentBaseSku;
   const submitBtn = document.getElementById("addQuantitySubmitBtn");
   
-  // Disable submit button
   submitBtn.disabled = true;
   submitBtn.style.opacity = "0.6";
   submitBtn.style.cursor = "not-allowed";
   
-  // Send request to update simple stock directly in the stock column
+  // Check if this is an existing stock (replace mode) or new stock (add mode)
+  // If current stock > 0, we are replacing the stock value
+  const replaceStock = window.currentStock > 0 ? "true" : "false";
+  
   fetch("../../back-end/update/addQuantity.php", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "sku=" + encodeURIComponent(baseSku) + 
           "&amount=" + encodeURIComponent(quantity) + 
           "&size=" + encodeURIComponent('') + 
           "&color=" + encodeURIComponent('') + 
-          "&simpleStock=true",
+          "&simpleStock=true" +
+          "&replaceStock=" + replaceStock,
   })
     .then((response) => response.json())
     .then((data) => {
@@ -568,12 +624,10 @@ function handleSimpleStockUpdate(quantity) {
       submitBtn.style.cursor = "pointer";
       
       if (data.success) {
-        // Update local products array
         const productIndex = products.findIndex(p => p.sku === baseSku);
         if (productIndex !== -1) {
-          products[productIndex].stock = (parseInt(products[productIndex].stock) || 0) + quantity;
+          products[productIndex].stock = data.newStock;
           
-          // Update status
           if (products[productIndex].stock === 0) {
             products[productIndex].status = 'Out of Stock';
           } else if (products[productIndex].stock <= 10) {
@@ -585,15 +639,12 @@ function handleSimpleStockUpdate(quantity) {
           localStorage.setItem("inventoryProducts", JSON.stringify(products));
         }
         
-        // Show success message
         const successMessage = document.getElementById("successMessage");
         const successText = successMessage.querySelector(".success-text");
-        successText.textContent = "Stock Added Successfully!";
+        successText.textContent = "Stock Updated Successfully!";
         successMessage.style.display = "block";
 
-        setTimeout(() => {
-          successMessage.style.display = "none";
-        }, 3000);
+        setTimeout(() => { successMessage.style.display = "none"; }, 3000);
 
         closeAddQuantityModal();
         window.location.reload();
@@ -612,7 +663,6 @@ function handleSimpleStockUpdate(quantity) {
 function addQuantity() {
   const form = document.getElementById("addQuantityForm");
   
-  // Check if sizes are loaded
   const sizesContainer = document.getElementById("sizesContainer");
   const sizesEmptyState = document.getElementById("sizesEmptyState");
   const sizesErrorState = document.getElementById("sizesErrorState");
@@ -624,31 +674,23 @@ function addQuantity() {
     return;
   }
   
-  // Check if empty state is shown
   if (sizesEmptyState.style.display === "block") {
-    // Check which mode we're in based on toggle
     if (noSizeColorToggle.checked) {
-      // Simple product mode (no colors) - direct stock input
       const quantity = parseInt(simpleStockQuantity.value) || 0;
       if (quantity < 0) {
         showInvalidMessage("Please enter a valid quantity");
         return;
       }
-      // Handle simple stock update
       handleSimpleStockUpdate(quantity);
       return;
     } else {
-      // Product with colors but no sizes - handle color quantities
       const colorInputs = document.querySelectorAll('.color-no-size-input');
       const updates = [];
       
       colorInputs.forEach((input) => {
         const amount = parseInt(input.value) || 0;
         if (amount >= 0) {
-          updates.push({
-            color: input.dataset.color,
-            amount: amount
-          });
+          updates.push({ color: input.dataset.color, amount: amount });
         }
       });
       
@@ -657,31 +699,26 @@ function addQuantity() {
         return;
       }
       
-      // Disable submit button
       const submitBtn = document.getElementById("addQuantitySubmitBtn");
       submitBtn.disabled = true;
       submitBtn.style.opacity = "0.6";
       submitBtn.style.cursor = "not-allowed";
       
-      // Process all color updates
       processNoSizeColorUpdates(updates, 0, submitBtn);
       return;
     }
   }
   
-  // Check if there was an error loading sizes
   if (sizesErrorState.style.display === "block") {
     showInvalidMessage("Failed to load product sizes. Please try again.");
     return;
   }
   
-  // Check if sizes container is empty
   if (!sizesContainer.innerHTML || sizesContainer.innerHTML.trim() === "") {
     showInvalidMessage("No sizes available for this product.");
     return;
   }
 
-  // Get both color-quantity inputs
   const quantityInputs = document.querySelectorAll(".color-quantity-input");
   const updates = [];
   
@@ -703,36 +740,28 @@ function addQuantity() {
     return;
   }
   
-  // Disable submit button
   const submitBtn = document.getElementById("addQuantitySubmitBtn");
   submitBtn.disabled = true;
   submitBtn.style.opacity = "0.6";
   submitBtn.style.cursor = "not-allowed";
   
-  // Process all updates
   processQuantityUpdates(updates, 0, submitBtn);
 }
 
 function processQuantityUpdates(updates, index, submitBtn) {
   if (index >= updates.length) {
-    // All updates completed
     submitBtn.disabled = false;
     submitBtn.style.opacity = "1";
     submitBtn.style.cursor = "pointer";
     
-    // Show success message
     const successMessage = document.getElementById("successMessage");
     const successText = successMessage.querySelector(".success-text");
     successText.textContent = "Quantities Added Successfully!";
     successMessage.style.display = "block";
 
-    setTimeout(() => {
-      successMessage.style.display = "none";
-    }, 3000);
+    setTimeout(() => { successMessage.style.display = "none"; }, 3000);
 
     closeAddQuantityModal();
-    
-    // Reload the page to get fresh data from the server
     window.location.reload();
     return;
   }
@@ -741,9 +770,7 @@ function processQuantityUpdates(updates, index, submitBtn) {
   
   fetch("../../back-end/update/addQuantity.php", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "sku=" + encodeURIComponent(update.sku) + 
           "&amount=" + encodeURIComponent(update.amount) + 
           "&size=" + encodeURIComponent(update.size) + 
@@ -752,7 +779,6 @@ function processQuantityUpdates(updates, index, submitBtn) {
     .then((response) => response.json())
     .then((data) => {
       if (data.success) {
-        // Process next update
         processQuantityUpdates(updates, index + 1, submitBtn);
       } else {
         submitBtn.disabled = false;
@@ -769,7 +795,6 @@ function processQuantityUpdates(updates, index, submitBtn) {
     });
 }
 
-// Process color updates for products with no sizes
 function processNoSizeColorUpdates(updates, index, submitBtn) {
   const baseSku = window.currentBaseSku;
   
@@ -783,9 +808,7 @@ function processNoSizeColorUpdates(updates, index, submitBtn) {
     successText.textContent = "Colors Added Successfully!";
     successMessage.style.display = "block";
 
-    setTimeout(() => {
-      successMessage.style.display = "none";
-    }, 3000);
+    setTimeout(() => { successMessage.style.display = "none"; }, 3000);
 
     closeAddQuantityModal();
     window.location.reload();
@@ -796,9 +819,7 @@ function processNoSizeColorUpdates(updates, index, submitBtn) {
   
   fetch("../../back-end/update/addQuantity.php", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: "sku=" + encodeURIComponent(baseSku) + 
           "&amount=" + encodeURIComponent(update.amount) + 
           "&size=" + encodeURIComponent('') + 
