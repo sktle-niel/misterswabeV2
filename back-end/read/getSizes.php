@@ -62,9 +62,16 @@ try {
             // Create color variants using stored variant_skus
             // Variant SKU format: baseSku-COLORCODE (for simple products)
             $colorVariants = [];
-            foreach ($colors as $color => $colorQty) {
-                // Use stored variant SKU if available, otherwise generate (baseSku-COLORCODE)
-                $variantSku = $variantSkus[$color] ?? ($baseSku . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color)));
+            foreach ($colors as $color => $colorData) {
+                // Handle both new format (with SKU) and old format (just quantity)
+                if (is_array($colorData) && isset($colorData['quantity'])) {
+                    $colorQty = intval($colorData['quantity']);
+                    $variantSku = $colorData['sku'] ?? ($variantSkus[$color] ?? ($baseSku . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color))));
+                } else {
+                    // Old format - just quantity
+                    $colorQty = intval($colorData);
+                    $variantSku = $variantSkus[$color] ?? ($baseSku . '-' . strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color)));
+                }
                 $colorVariants[] = [
                     'sku' => $variantSku,
                     'color' => $color,

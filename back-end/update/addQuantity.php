@@ -13,9 +13,113 @@ $amount = (int)($_POST['amount'] ?? 0);
 $color = $_POST['color'] ?? '';
 $size = $_POST['size'] ?? '';
 $simpleStock = $_POST['simpleStock'] ?? '';
+$noSizeProduct = $_POST['noSizeProduct'] ?? '';
 
 if (empty($sku) || $amount < 0) {
     echo json_encode(['success' => false, 'message' => 'Invalid SKU or amount']);
+    exit;
+}
+
+// Handle noSizeProduct mode - products with colors but no sizes
+if ($noSizeProduct === 'true' || $noSizeProduct === true) {
+    if (empty($color)) {
+        echo json_encode(['success' => false, 'message' => 'Color is required']);
+        exit;
+    }
+    
+    try {
+        include '../../config/connection.php';
+        
+        $baseSku = $sku;
+        
+        // Check if color column exists
+        $checkColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
+        if (!$checkColumn || $checkColumn->num_rows == 0) {
+            $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
+        }
+
+        // Fetch current product data
+        $stmt = $conn->prepare("SELECT size_quantities, size_color_quantities, color FROM inventory WHERE sku = ?");
+        $stmt->bind_param("s", $baseSku);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 0) {
+            echo json_encode(['success' => false, 'message' => 'Product not found']);
+            exit;
+        }
+
+        $row = $result->fetch_assoc();
+        
+        $sizeQuantities = json_decode($row['size_quantities'] ?? '{}', true);
+        $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
+        $existingColors = json_decode($row['color'] ?? '[]', true);
+        
+        if (!is_array($sizeQuantities)) $sizeQuantities = [];
+        if (!is_array($sizeColorQuantities)) $sizeColorQuantities = [];
+        if (!is_array($existingColors)) $existingColors = [];
+        
+        // Generate variant SKU for no-size product
+        $colorCode = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $color));
+        $variantSku = $baseSku . '-' . $colorCode;
+        
+        // Update size_color_quantities with empty size key
+        if (!isset($sizeColorQuantities[''])) {
+            $sizeColorQuantities[''] = [];
+        }
+        $sizeColorQuantities[''][$color] = [
+            'quantity' => $amount,
+            'sku' => $variantSku
+        ];
+        
+        $sizeQuantities[''] = $amount;
+
+        // Calculate new total stock
+        $newStock = 0;
+        foreach ($sizeColorQuantities as $sizeKey => $colors) {
+            if (is_array($colors)) {
+                foreach ($colors as $colorKey => $colorData) {
+                    if (is_array($colorData) && isset($colorData['quantity'])) {
+                        $newStock += intval($colorData['quantity']);
+                    }
+                }
+            }
+        }
+
+        // Determine new status
+        if ($newStock == 0) {
+            $newStatus = 'Out of Stock';
+        } elseif ($newStock <= 10) {
+            $newStatus = 'Low Stock';
+        } else {
+            $newStatus = 'In Stock';
+        }
+
+        // Collect all unique colors
+        $allColors = $existingColors;
+        if (!in_array($color, $allColors)) {
+            $allColors[] = $color;
+        }
+        
+        $updatedColors = json_encode($allColors);
+        $updatedSizeColorQuantities = json_encode($sizeColorQuantities);
+        $updatedSizeQuantities = json_encode($sizeQuantities);
+
+        $updateStmt = $conn->prepare("UPDATE inventory SET size_quantities = ?, size_color_quantities = ?, color = ?, stock = ?, status = ? WHERE sku = ?");
+        $updateStmt->bind_param("sssiss", $updatedSizeQuantities, $updatedSizeColorQuantities, $updatedColors, $newStock, $newStatus, $baseSku);
+
+        if ($updateStmt->execute()) {
+            echo json_encode(['success' => true, 'message' => 'Color added successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update quantity']);
+        }
+
+        $stmt->close();
+        $updateStmt->close();
+        $conn->close();
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    }
     exit;
 }
 
