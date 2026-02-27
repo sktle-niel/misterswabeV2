@@ -122,8 +122,8 @@ $closeFunction = $closeFunction ?? 'closeEditProductModal';
                                 Product Sizes
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #6b7280;">
-                                <input type="checkbox" id="editNoSizeColorRequired" onchange="toggleEditSizeColorRequired()" style="width: 16px; height: 16px; cursor: pointer;">
-                                <span>No sizes (simple product)</span>
+<input type="checkbox" id="editNoSizeColorRequired" onchange="toggleEditSizeColorRequired()" style="width: 16px; height: 16px; cursor: pointer;">
+                                <span>None size product</span>
                             </label>
                         </div>
                         

@@ -161,6 +161,12 @@ $imagesJson = json_encode($images);
         $conn->query("ALTER TABLE inventory ADD COLUMN size_color_quantities JSON NULL");
     }
     
+    // Check if color column exists, if not create it
+    $checkColorColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
+    if (!$checkColorColumn || $checkColorColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON DEFAULT NULL");
+    }
+    
     // Check if variant_skus column exists
     $checkVariantColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'variant_skus'");
     if (!$checkVariantColumn || $checkVariantColumn->num_rows == 0) {
@@ -207,8 +213,23 @@ $imagesJson = json_encode($images);
     }
     $variantSkusJson = json_encode($variantSkus);
     
-$sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, images, status, variant_skus, information)
-            VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$imagesJson', '$status', '$variantSkusJson', '$informationJson')";
+    // Build color array from sizeColorQuantities
+    $allColors = [];
+    if (!empty($sizeColorQuantities) && is_array($sizeColorQuantities)) {
+        foreach ($sizeColorQuantities as $size => $colors) {
+            if (is_array($colors)) {
+                foreach (array_keys($colors) as $color) {
+                    if (!in_array($color, $allColors)) {
+                        $allColors[] = $color;
+                    }
+                }
+            }
+        }
+    }
+    $colorJson = json_encode($allColors);
+    
+    $sql = "INSERT INTO inventory (id, name, sku, category, price, stock, size, size_quantities, size_color_quantities, color, images, status, variant_skus, information)
+            VALUES ('$id', '$name', '$sku', '$category', $price, $stock, '$sizeString', '$sizeQuantitiesJson', '$sizeColorQuantitiesJson', '$colorJson', '$imagesJson', '$status', '$variantSkusJson', '$informationJson')";
 
     if ($conn->query($sql) === TRUE) {
         return ['success' => true, 'message' => 'Product added successfully', 'id' => $id, 'sku' => $sku, 'images' => $images, 'stock' => $stock, 'size_color_quantities' => $sizeColorQuantities, 'variant_skus' => $variantSkus];
