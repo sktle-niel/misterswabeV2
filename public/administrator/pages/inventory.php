@@ -102,7 +102,7 @@ $recentProduct = !empty($products) ? $products[0] : null;
                             </label>
                             <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #6b7280;">
                                 <input type="checkbox" id="noSizeColorRequired" onchange="toggleSizeColorRequired()" style="width: 16px; height: 16px; cursor: pointer;">
-                                <span>No sizes (No required sizes)</span>
+                                <span>None size product</span>
                             </label>
                         </div>
                         

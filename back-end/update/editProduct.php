@@ -21,6 +21,14 @@ function editProduct($data) {
     if (!$informationColumnExists) {
         $conn->query("ALTER TABLE inventory ADD COLUMN information JSON NULL");
     }
+    
+    // Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+
+    // If color column doesn't exist, create it
+    if (!$colorColumnExists) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN color JSON DEFAULT NULL");
+    }
 
     // Sanitize inputs
     $originalSku = mysqli_real_escape_string($conn, $data['originalSku']);
@@ -162,6 +170,18 @@ function editProduct($data) {
 // Build updated size quantities from size_color_quantities
         $finalSizeColorQuantities = [];
         
+        // Extract unique colors from size_color_quantities for the color column
+        $allColors = [];
+        foreach ($updatedSizeColorQuantities as $sizeKey => $colors) {
+            if (is_array($colors)) {
+                foreach (array_keys($colors) as $colorKey) {
+                    if (!in_array($colorKey, $allColors)) {
+                        $allColors[] = $colorKey;
+                    }
+                }
+            }
+        }
+        
         if ($isSimpleProduct) {
             // Simple product - preserve existing size data and just set the quantity
             $finalSizeColorQuantities = $updatedSizeColorQuantities;
@@ -263,12 +283,12 @@ function editProduct($data) {
     $skuChanged = ($sku !== $originalSku);
     
     if ($skuChanged) {
-        // Get the existing ID from the product
+// Get the existing ID from the product
         $existingId = $row['id'] ?? '';
         
-        // Get existing color from the row
-        $existingColor = $row['color'] ?? '[]';
-        $colorEscaped = mysqli_real_escape_string($conn, $existingColor);
+        // Use the extracted colors from size_color_quantities
+        $colorJson = json_encode($allColors);
+        $colorEscaped = mysqli_real_escape_string($conn, $colorJson);
         
         // Get existing size_quantities from the row
         $existingSizeQuantities = $row['size_quantities'] ?? '{}';
@@ -332,12 +352,17 @@ function editProduct($data) {
         }
     } else {
         // SKU unchanged - regular update
+        // Prepare color JSON from extracted colors
+        $colorJson = json_encode($allColors);
+        $colorEscaped = mysqli_real_escape_string($conn, $colorJson);
+        
         $updateFields = [
             "name = '$name'",
             "category = '$categoryName'",
             "price = $price",
             "stock = $stock",
             "size_color_quantities = '$sizeColorQuantitiesJson'",
+            "color = '$colorEscaped'",
             "status = '$status'"
         ];
         
