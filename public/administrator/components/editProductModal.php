@@ -615,6 +615,7 @@ function resetEditForm() {
     editCurrentSizeColorQuantities = {};
     pendingSizeToRemove = null;
     document.getElementById('editNoSizeColorRequired').checked = false;
+    document.getElementById('editNoSizeColorRequired').disabled = false;
     document.getElementById('editSizeConfigSection').style.display = 'block';
     document.getElementById('editSizeTypeSelection').style.display = 'block';
     document.getElementById('editSizeSelectionArea').style.display = 'none';
@@ -766,6 +767,8 @@ function populateEditForm(product) {
     
 if (isSimpleProduct) {
         document.getElementById('editNoSizeColorRequired').checked = true;
+        // Disable the checkbox since product has no sizes (simple product)
+        document.getElementById('editNoSizeColorRequired').disabled = true;
         document.getElementById('editSizeConfigSection').style.display = 'none';
         // Show simple product section
         const simpleProductSection = document.getElementById('editSimpleProductSection');
@@ -797,6 +800,9 @@ if (isSimpleProduct) {
             }
         }
     } else {
+        // Disable the checkbox for products with sizes
+        document.getElementById('editNoSizeColorRequired').disabled = true;
+        
         // Determine size type
         const numericSizes = ['39', '40', '41', '42', '43', '44', '45', '46', '47'];
         const hasNumericSizes = currentSizes.some(s => numericSizes.includes(s));
