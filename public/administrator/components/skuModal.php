@@ -49,7 +49,7 @@
                         <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                         <rect x="6" y="14" width="12" height="8"></rect>
                     </svg>
-                    Print All
+                    Print Selected
                 </span>
             </button>
             <button type="button" onclick="closeSkuModal()"
@@ -72,10 +72,14 @@
 // Store current product variants
 let currentProductVariants = [];
 
+// Store print quantities for each variant
+let printQuantities = {};
+
 // SKU Modal Functions
 function closeSkuModal() {
   document.getElementById("skuModalOverlay").style.display = "none";
   currentProductVariants = [];
+  printQuantities = {};
 }
 
 function closeSkuModalOnOverlay(event) {
@@ -101,6 +105,9 @@ function openSkuModal(sku) {
   barcodeContainer.style.display = "none";
   errorState.style.display = "none";
   emptyState.style.display = "none";
+  
+  // Reset print quantities
+  printQuantities = {};
 
   // Fetch product sizes with colors
   fetch("../../back-end/read/getSizes.php?sku=" + encodeURIComponent(sku))
@@ -126,6 +133,11 @@ function openSkuModal(sku) {
     });
 
   overlay.style.display = "flex";
+}
+
+// Set print quantity for a specific variant
+function setPrintQuantity(sku, quantity) {
+  printQuantities[sku] = parseInt(quantity) || 0;
 }
 
 function renderSizeVariants(sizes) {
@@ -159,8 +171,8 @@ function renderSizeVariants(sizes) {
         const needsRestock = variantQty === 0;
         
         colorVariantsHtml += `
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 6px; margin-bottom: 8px; border: 1px solid ${needsRestock ? '#fca5a5' : '#e5e7eb'};">
-            <div style="flex: 1;">
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 6px; margin-bottom: 8px; border: 1px solid ${needsRestock ? '#fca5a5' : '#e5e7eb'}; flex-wrap: wrap; gap: 12px;">
+            <div style="flex: 1; min-width: 200px;">
               <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
                 <span style="font-weight: 600; color: #374151;">${variant.color}</span>
                 <span style="font-size: 12px; color: ${needsRestock ? '#dc2626' : '#6b7280'}; background: ${needsRestock ? '#fee2e2' : '#f3f4f6'}; padding: 2px 8px; border-radius: 4px;">Qty: ${variantQty}</span>
@@ -168,13 +180,23 @@ function renderSizeVariants(sizes) {
               </div>
               <div style="font-size: 12px; color: #6b7280; font-family: monospace;">${variant.sku}</div>
             </div>
-            <div style="margin-left: 16px;">
-              <svg id="${uniqueId}" class="barcode-svg"></svg>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <label style="font-size: 12px; color: #6b7280; white-space: nowrap;">Print:</label>
+                <input type="number" min="0" value="" placeholder="0" 
+                    onchange="setPrintQuantity('${variant.sku}', this.value)"
+                    oninput="setPrintQuantity('${variant.sku}', this.value)"
+                    class="print-quantity-input"
+                    style="width: 60px; padding: 6px 8px; border: 2px solid #e5e7eb; border-radius: 4px; font-size: 13px; text-align: center;">
+              </div>
+              <div style="margin-left: 8px;">
+                <svg id="${uniqueId}" class="barcode-svg"></svg>
+              </div>
+              <button type="button" onclick="printSingleBarcode('${variant.sku}', '${uniqueId}', true)"
+                  style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                  Print
+              </button>
             </div>
-            <button type="button" onclick="printSingleBarcode('${variant.sku}', '${uniqueId}')"
-                style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: 12px;">
-                Print
-            </button>
           </div>
         `;
       });
@@ -184,8 +206,8 @@ function renderSizeVariants(sizes) {
       const simpleProductNeedsRestock = sizeStock === 0;
       
       colorVariantsHtml = `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 6px; border: 1px solid ${simpleProductNeedsRestock ? '#fca5a5' : '#e5e7eb'};">
-          <div style="flex: 1;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 6px; border: 1px solid ${simpleProductNeedsRestock ? '#fca5a5' : '#e5e7eb'}; flex-wrap: wrap; gap: 12px;">
+          <div style="flex: 1; min-width: 200px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
               <span style="font-weight: 600; color: #374151;">Simple Product</span>
               <span style="font-size: 12px; color: ${simpleProductNeedsRestock ? '#dc2626' : '#6b7280'}; background: ${simpleProductNeedsRestock ? '#fee2e2' : '#f3f4f6'}; padding: 2px 8px; border-radius: 4px;">Qty: ${sizeStock}</span>
@@ -193,13 +215,23 @@ function renderSizeVariants(sizes) {
             </div>
             <div style="font-size: 12px; color: #6b7280; font-family: monospace;">${sizeData.sku}</div>
           </div>
-          <div style="margin-left: 16px;">
-            <svg id="${uniqueId}" class="barcode-svg"></svg>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label style="font-size: 12px; color: #6b7280; white-space: nowrap;">Print:</label>
+              <input type="number" min="0" value="" placeholder="0" 
+                  onchange="setPrintQuantity('${sizeData.sku}', this.value)"
+                  oninput="setPrintQuantity('${sizeData.sku}', this.value)"
+                  class="print-quantity-input"
+                  style="width: 60px; padding: 6px 8px; border: 2px solid #e5e7eb; border-radius: 4px; font-size: 13px; text-align: center;">
+            </div>
+            <div style="margin-left: 8px;">
+              <svg id="${uniqueId}" class="barcode-svg"></svg>
+            </div>
+            <button type="button" onclick="printSingleBarcode('${sizeData.sku}', '${uniqueId}', true)"
+                style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                Print
+            </button>
           </div>
-          <button type="button" onclick="printSingleBarcode('${sizeData.sku}', '${uniqueId}')"
-              style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: 12px;">
-              Print
-          </button>
         </div>
       `;
     } else {
@@ -208,8 +240,8 @@ function renderSizeVariants(sizes) {
       const noColorWarning = sizeStock === 0 ? '<span style="font-size: 11px; color: #dc2626; font-weight: 600; margin-left: 8px;">⚠️ No colors set - Needs Restock</span>' : '<span style="font-size: 11px; color: #f59e0b; font-weight: 600; margin-left: 8px;">⚠️ No colors set</span>';
       
       colorVariantsHtml = `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 6px; border: 1px solid ${needsSizeRestock ? '#fca5a5' : '#e5e7eb'};">
-          <div style="flex: 1;">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: white; border-radius: 6px; border: 1px solid ${needsSizeRestock ? '#fca5a5' : '#e5e7eb'}; flex-wrap: wrap; gap: 12px;">
+          <div style="flex: 1; min-width: 200px;">
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
               <span style="font-weight: 600; color: #374151;">Default</span>
               <span style="font-size: 12px; color: ${needsSizeRestock ? '#dc2626' : '#6b7280'}; background: ${needsSizeRestock ? '#fee2e2' : '#f3f4f6'}; padding: 2px 8px; border-radius: 4px;">Qty: ${sizeStock}</span>
@@ -217,13 +249,23 @@ function renderSizeVariants(sizes) {
             </div>
             <div style="font-size: 12px; color: #6b7280; font-family: monospace;">${sizeData.sku}</div>
           </div>
-          <div style="margin-left: 16px;">
-            <svg id="${uniqueId}" class="barcode-svg"></svg>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <label style="font-size: 12px; color: #6b7280; white-space: nowrap;">Print:</label>
+              <input type="number" min="0" value="" placeholder="0" 
+                  onchange="setPrintQuantity('${sizeData.sku}', this.value)"
+                  oninput="setPrintQuantity('${sizeData.sku}', this.value)"
+                  class="print-quantity-input"
+                  style="width: 60px; padding: 6px 8px; border: 2px solid #e5e7eb; border-radius: 4px; font-size: 13px; text-align: center;">
+            </div>
+            <div style="margin-left: 8px;">
+              <svg id="${uniqueId}" class="barcode-svg"></svg>
+            </div>
+            <button type="button" onclick="printSingleBarcode('${sizeData.sku}', '${uniqueId}', true)"
+                style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                Print
+            </button>
           </div>
-          <button type="button" onclick="printSingleBarcode('${sizeData.sku}', '${uniqueId}')"
-              style="padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: 12px;">
-              Print
-          </button>
         </div>
       `;
     }
@@ -306,24 +348,45 @@ function renderSizeVariants(sizes) {
   });
 }
 
-function printSingleBarcode(sku, elementId) {
+function printSingleBarcode(sku, elementId, useQuantity = false) {
   // Create a temporary container for printing
   const tempContainer = document.createElement("div");
   const svg = document.createElement("svg");
   
+  // Determine how many copies to print
+  let copies = 1;
+  if (useQuantity) {
+    const inputQty = printQuantities[sku];
+    if (inputQty && inputQty > 0) {
+      copies = inputQty;
+    }
+  }
+  
   try {
+    // Use mid size for printing
     JsBarcode(svg, sku, {
       format: "CODE128",
       width: 2,
-      height: 60,
+      height: 50,
       displayValue: true,
-      fontSize: 14,
+      fontSize: 12,
       margin: 0
     });
     
     tempContainer.appendChild(svg);
     
     const printWindow = window.open("", "_blank");
+    
+    // Generate HTML for all copies
+    let copiesHtml = '';
+    for (let i = 0; i < copies; i++) {
+      copiesHtml += `
+        <div class="barcode-container">
+          <div class="barcode">${svg.outerHTML}</div>
+        </div>
+      `;
+    }
+    
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -342,22 +405,21 @@ function printSingleBarcode(sku, elementId) {
             border: 1px solid #ccc;
             border-radius: 8px;
             background: white;
+            margin: 10px;
           }
           .barcode svg {
-            width: 300px;
+            width: 250px;
             height: auto;
             max-width: 100%;
           }
           @media print {
             body { margin: 0; }
-            .barcode-container { border: none; padding: 10px; }
+            .barcode-container { border: none; padding: 10px; page-break-inside: avoid; }
           }
         </style>
       </head>
       <body>
-        <div class="barcode-container">
-          <div class="barcode">${svg.outerHTML}</div>
-        </div>
+        ${copiesHtml}
         <script>
           window.onload = function() {
             window.print();
@@ -383,6 +445,13 @@ function printAllBarcodes() {
     return;
   }
   
+  // Check if any quantities are set
+  const totalSelected = Object.values(printQuantities).reduce((sum, qty) => sum + (qty || 0), 0);
+  if (totalSelected === 0) {
+    alert("Please set the number of barcodes to print for each variant using the quantity inputs.");
+    return;
+  }
+  
   let htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -398,7 +467,7 @@ function printAllBarcodes() {
           page-break-after: always;
           display: flex;
           flex-wrap: wrap;
-          gap: 20px;
+          gap: 15px;
           justify-content: center;
         }
         .barcode-page:last-child {
@@ -411,10 +480,10 @@ function printAllBarcodes() {
           border-radius: 8px;
           background: white;
           text-align: center;
-          margin: 10px;
+          margin: 8px;
         }
         .barcode-item svg {
-          width: 200px;
+          width: 250px;
           height: auto;
           max-width: 100%;
         }
@@ -425,7 +494,7 @@ function printAllBarcodes() {
         }
         @media print {
           body { margin: 0; }
-          .barcode-item { border: none; padding: 10px; }
+          .barcode-item { border: none; padding: 10px; page-break-inside: avoid; }
         }
       </style>
     </head>
@@ -433,18 +502,58 @@ function printAllBarcodes() {
   `;
   
   let barcodeCount = 0;
-  const barcodesPerPage = 12;
+  const barcodesPerPage = 10;
   let pageContent = '<div class="barcode-page">';
   
-  // Add all variant barcodes
+  // Add all variant barcodes based on selected quantities
   currentProductVariants.forEach((sizeData) => {
     const colorVariants = sizeData.color_variants || [];
     
     if (colorVariants.length > 0) {
       colorVariants.forEach((variant) => {
+        const quantity = printQuantities[variant.sku] || 0;
+        
+        if (quantity > 0) {
+          const tempSvg = document.createElement("svg");
+          try {
+            // Use mid size for printing
+            JsBarcode(tempSvg, variant.sku, {
+              format: "CODE128",
+              width: 2,
+              height: 50,
+              displayValue: true,
+              fontSize: 12,
+              margin: 0
+            });
+            
+            // Add requested quantity of barcodes
+            for (let q = 0; q < quantity; q++) {
+              // Check if we need a new page
+              if (barcodeCount > 0 && barcodeCount % barcodesPerPage === 0) {
+                pageContent += '</div><div class="barcode-page">';
+              }
+              
+              pageContent += `
+                <div class="barcode-item">
+                  <div>${tempSvg.outerHTML}</div>
+                  <div class="barcode-label">${sizeData.size} - ${variant.color}</div>
+                </div>
+              `;
+              barcodeCount++;
+            }
+          } catch (e) {
+            console.error("Error generating variant barcode:", e);
+          }
+        }
+      });
+    } else {
+      const quantity = printQuantities[sizeData.sku] || 0;
+      
+      if (quantity > 0) {
         const tempSvg = document.createElement("svg");
         try {
-          JsBarcode(tempSvg, variant.sku, {
+          // Use mid size for printing
+          JsBarcode(tempSvg, sizeData.sku, {
             format: "CODE128",
             width: 2,
             height: 50,
@@ -453,50 +562,31 @@ function printAllBarcodes() {
             margin: 0
           });
           
-          // Check if we need a new page
-          if (barcodeCount > 0 && barcodeCount % barcodesPerPage === 0) {
-            pageContent += '</div><div class="barcode-page">';
+          // Add requested quantity of barcodes
+          for (let q = 0; q < quantity; q++) {
+            if (barcodeCount > 0 && barcodeCount % barcodesPerPage === 0) {
+              pageContent += '</div><div class="barcode-page">';
+            }
+            
+            pageContent += `
+              <div class="barcode-item">
+                <div>${tempSvg.outerHTML}</div>
+                <div class="barcode-label">${sizeData.size || 'Default'}</div>
+              </div>
+            `;
+            barcodeCount++;
           }
-          
-          pageContent += `
-            <div class="barcode-item">
-              <div>${tempSvg.outerHTML}</div>
-              <div class="barcode-label">${sizeData.size} - ${variant.color}</div>
-            </div>
-          `;
-          barcodeCount++;
         } catch (e) {
-          console.error("Error generating variant barcode:", e);
+          console.error("Error generating size barcode:", e);
         }
-      });
-    } else {
-      const tempSvg = document.createElement("svg");
-      try {
-        JsBarcode(tempSvg, sizeData.sku, {
-          format: "CODE128",
-          width: 2,
-          height: 50,
-          displayValue: true,
-          fontSize: 12,
-          margin: 0
-        });
-        
-        if (barcodeCount > 0 && barcodeCount % barcodesPerPage === 0) {
-          pageContent += '</div><div class="barcode-page">';
-        }
-        
-        pageContent += `
-          <div class="barcode-item">
-            <div>${tempSvg.outerHTML}</div>
-            <div class="barcode-label">${sizeData.size} (Default)</div>
-          </div>
-        `;
-        barcodeCount++;
-      } catch (e) {
-        console.error("Error generating size barcode:", e);
       }
     }
   });
+  
+  if (barcodeCount === 0) {
+    alert("Please set the number of barcodes to print for each variant using the quantity inputs.");
+    return;
+  }
   
   pageContent += '</div>';
   htmlContent += pageContent;
