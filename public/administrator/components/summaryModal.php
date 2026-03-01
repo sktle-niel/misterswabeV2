@@ -36,12 +36,23 @@ function openSummaryModal(sku) {
         return;
     }
 
+    // Parse size_color_quantities properly
+    let sizeColorQuantities = null;
+    if (product.size_color_quantities && product.size_color_quantities !== 'null' && product.size_color_quantities !== '{}') {
+        try {
+            sizeColorQuantities = typeof product.size_color_quantities === 'string' 
+                ? JSON.parse(product.size_color_quantities) 
+                : product.size_color_quantities;
+        } catch (e) {
+            sizeColorQuantities = null;
+        }
+    }
+    
     // Check if it's a simple product (no sizes)
     // A product has sizes if it has size_color_quantities with data
-    const hasSizeColorQuantities = product.size_color_quantities && 
-                                    product.size_color_quantities !== 'null' && 
-                                    product.size_color_quantities !== '{}' &&
-                                    Object.keys(product.size_color_quantities).length > 0;
+    const hasSizeColorQuantities = sizeColorQuantities && 
+                                    typeof sizeColorQuantities === 'object' &&
+                                    Object.keys(sizeColorQuantities).length > 0;
     
     const isSimpleProduct = !hasSizeColorQuantities && (!product.size || product.size === 'N/A' || product.size === '');
 
@@ -141,35 +152,53 @@ function openSummaryModal(sku) {
         }
     }
 
-    // Size and Color Quantities - always show if available (for products with sizes)
-    if (product.size_color_quantities) {
+    // Size and Color Quantities - use the already parsed sizeColorQuantities
+    if (hasSizeColorQuantities) {
         let sizeColorHtml = '';
-        try {
-            const sizeColorQuantities = typeof product.size_color_quantities === 'string' ? JSON.parse(product.size_color_quantities) : product.size_color_quantities;
-            
-            if (sizeColorQuantities && typeof sizeColorQuantities === 'object') {
-                Object.entries(sizeColorQuantities).forEach(([size, colors]) => {
-                    if (colors && typeof colors === 'object' && Object.keys(colors).length > 0) {
-                        // Build color quantities string for this size like "black & white (2), red (2)"
-                        const colorParts = Object.entries(colors).map(([color, qty]) => {
-                            return `${color} (${qty})`;
-                        });
-                        const colorStr = colorParts.join(', ');
-                        const totalForSize = Object.values(colors).reduce((sum, qty) => sum + parseInt(qty), 0);
-                        
-                        sizeColorHtml += `
-                            <tr>
-                                <td style="padding: 12px 10px; font-size: 14px; color: #374151; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${size}</td>
-                                <td style="padding: 12px 10px; font-size: 14px; color: #374151; border-bottom: 1px solid #e5e7eb;">${colorStr}</td>
-                                <td style="padding: 12px 10px; font-size: 14px; color: #374151; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: 600;">${totalForSize}</td>
-                            </tr>
-                        `;
+        
+        Object.entries(sizeColorQuantities).forEach(([size, colors]) => {
+            if (colors && typeof colors === 'object' && Object.keys(colors).length > 0) {
+                // Build color quantities string for this size like "black (2), red (2)"
+                // Data structure: { "Size": { "Color": { "quantity": 10, "sku": "..." } } }
+                const colorParts = Object.entries(colors).map(([color, colorData]) => {
+                    // Handle both new nested structure {quantity, sku} and old simple {qty} or direct number
+                    let qty = 0;
+                    if (typeof colorData === 'object' && colorData !== null) {
+                        if (typeof colorData.quantity !== 'undefined') {
+                            qty = parseInt(colorData.quantity) || 0;
+                        } else if (typeof colorData.qty !== 'undefined') {
+                            qty = parseInt(colorData.qty) || 0;
+                        }
+                    } else if (typeof colorData === 'number') {
+                        qty = parseInt(colorData) || 0;
+                    }
+                    return `${color} (${qty})`;
+                });
+                const colorStr = colorParts.join(', ');
+                
+                // Calculate total for this size
+                let totalForSize = 0;
+                Object.values(colors).forEach((colorData) => {
+                    if (typeof colorData === 'object' && colorData !== null) {
+                        if (typeof colorData.quantity !== 'undefined') {
+                            totalForSize += parseInt(colorData.quantity) || 0;
+                        } else if (typeof colorData.qty !== 'undefined') {
+                            totalForSize += parseInt(colorData.qty) || 0;
+                        }
+                    } else if (typeof colorData === 'number') {
+                        totalForSize += parseInt(colorData) || 0;
                     }
                 });
+                
+                sizeColorHtml += `
+                    <tr>
+                        <td style="padding: 12px 10px; font-size: 14px; color: #374151; border-bottom: 1px solid #e5e7eb; font-weight: 600;">${size}</td>
+                        <td style="padding: 12px 10px; font-size: 14px; color: #374151; border-bottom: 1px solid #e5e7eb;">${colorStr}</td>
+                        <td style="padding: 12px 10px; font-size: 14px; color: #374151; border-bottom: 1px solid #e5e7eb; text-align: center; font-weight: 600;">${totalForSize}</td>
+                    </tr>
+                `;
             }
-        } catch (e) {
-            sizeColorHtml = '<tr><td colspan="3" style="padding: 10px; font-size: 14px; color: #6b7280;">No size-color quantity data available</td></tr>';
-        }
+        });
 
         if (sizeColorHtml) {
             summaryHtml += `
