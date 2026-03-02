@@ -193,7 +193,10 @@ function editProduct($data) {
                 $stock = intval($row['stock'] ?? 0);
             }
         } else {
-            // Product with sizes - keep existing quantities from size_color_quantities
+            // Product with sizes - ONLY keep existing quantities for sizes that are still selected
+            // This properly removes colors/quantities for sizes that were deselected
+            $finalSizeColorQuantities = [];
+            
             foreach ($newSizes as $size) {
                 // Keep existing color quantities for this size if available
                 if (isset($updatedSizeColorQuantities[$size])) {
@@ -356,11 +359,17 @@ function editProduct($data) {
         $colorJson = json_encode($allColors);
         $colorEscaped = mysqli_real_escape_string($conn, $colorJson);
         
+        // Get existing size_quantities from the row
+        $existingSizeQuantities = $row['size_quantities'] ?? '{}';
+        $sizeQuantitiesEscaped = mysqli_real_escape_string($conn, $existingSizeQuantities);
+        
         $updateFields = [
             "name = '$name'",
             "category = '$categoryName'",
             "price = $price",
             "stock = $stock",
+            "size = '$sizeString'",
+            "size_quantities = '$sizeQuantitiesEscaped'",
             "size_color_quantities = '$sizeColorQuantitiesJson'",
             "color = '$colorEscaped'",
             "status = '$status'"
