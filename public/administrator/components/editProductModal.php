@@ -442,7 +442,15 @@ function toggleEditSize(checkbox) {
         // Removing a size - check if it has colors/quantities
         if (editCurrentSizeColorQuantities && editCurrentSizeColorQuantities[size]) {
             const sizeColors = editCurrentSizeColorQuantities[size];
-            const hasColors = Object.keys(sizeColors).some(color => sizeColors[color] > 0);
+            
+            // Check if there are any colors with quantity > 0
+            let hasColors = false;
+            if (sizeColors && typeof sizeColors === 'object') {
+                hasColors = Object.keys(sizeColors).some(color => {
+                    const qty = sizeColors[color];
+                    return qty > 0;
+                });
+            }
             
             if (hasColors) {
                 // Show confirmation modal
@@ -502,13 +510,16 @@ function closeConfirmRemoveSizeModalOnOverlay(event) {
 }
 
 function closeConfirmRemoveSizeModal() {
+    // Store the size to uncheck before clearing
+    const sizeToUncheck = pendingSizeToRemove;
+    
     document.getElementById('confirmRemoveSizeModalOverlay').style.display = 'none';
     pendingSizeToRemove = null;
     
     // Uncheck the checkbox
-    if (pendingSizeToRemove) {
+    if (sizeToUncheck) {
         document.querySelectorAll('.edit-size-checkbox').forEach(cb => {
-            if (cb.value === pendingSizeToRemove) {
+            if (cb.value === sizeToUncheck) {
                 cb.checked = false;
             }
         });
@@ -952,11 +963,13 @@ function updateProduct() {
     const category = categoryElement.value;
     const price = priceElement.value.trim().replace(/[₱,]/g, "");
     
-    // Get sizes
+    // Get sizes - ensure hidden input is updated first
     const isSimpleProduct = document.getElementById('editNoSizeColorRequired').checked;
     let selectedSizes = [];
     
     if (!isSimpleProduct) {
+        // Make sure hidden input has latest values before reading
+        updateEditHiddenInputs();
         selectedSizes = editSelectedSizes;
     }
 

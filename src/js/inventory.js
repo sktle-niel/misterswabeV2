@@ -62,15 +62,27 @@ function renderProducts(productsToRender) {
           })
           .filter(item => item !== null)
           .join(", ");
-        sizeQuantitiesDisplay = formattedQuantities || "N/A";
+        sizeQuantitiesDisplay = formattedQuantities || "Not set/None";
       } catch (e) {
         console.log(
           "Error parsing size_color_quantities:",
           product.size_color_quantities,
           e,
         );
-        sizeQuantitiesDisplay = "N/A";
+        sizeQuantitiesDisplay = "Not set/None";
       }
+    }
+
+    // Handle empty color display
+    let colorDisplay = product.color;
+    if (!colorDisplay || colorDisplay === "[]" || colorDisplay === "null" || colorDisplay === "{}") {
+      colorDisplay = "Not set/None";
+    }
+
+    // Handle empty size display
+    let sizeDisplay = product.size;
+    if (!sizeDisplay || sizeDisplay === "null" || sizeDisplay === "N/A") {
+      sizeDisplay = "Not set/None";
     }
 
     row.innerHTML = `
@@ -81,8 +93,8 @@ function renderProducts(productsToRender) {
             <td><span class="badge badge-info">${product.category}</span></td>
             <td style="font-weight: 600;">${product.price}</td>
             <td style="${stockClass ? `color: ${stockClass}; font-weight: 600;` : ""}">${product.stock}</td>
-            <td>${product.size || "N/A"}</td>
-            <td style="font-size: 0.875rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${product.color || ''}">${product.color || "N/A"}</td>
+            <td>${sizeDisplay}</td>
+            <td style="font-size: 0.875rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${colorDisplay}">${colorDisplay}</td>
             <td><span class="badge ${statusClass}">${product.status}</span></td>
             <td>
                 <div style="display: flex; gap: var(--spacing-xs);">
