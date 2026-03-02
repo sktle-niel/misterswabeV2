@@ -11,14 +11,14 @@ function fetchProducts() {
     $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
     
 // Build query - only select columns that exist
-$sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.status, i.size, i.size_quantities, i.size_color_quantities";
+$sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.status, i.size, i.size_quantities, i.size_color_quantities, i.created_at";
     if ($colorColumnExists) {
         $sql .= ", i.color";
     }
     if ($informationColumnExists) {
         $sql .= ", i.information";
     }
-    $sql .= ", i.variant_skus FROM inventory i ORDER BY i.id DESC";
+    $sql .= ", i.variant_skus FROM inventory i ORDER BY i.created_at DESC";
     
     $result = $conn->query($sql);
 
@@ -141,8 +141,8 @@ $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.st
                 'size' => $sizeValue,
                 'color' => $colorDisplay,
                 'size_color_quantities' => $row['size_color_quantities'] ?? null,
-
-'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
+                'created_at' => $row['created_at'] ?? null,
+                'image' => $adjustedImages[0] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop&q=90', // Use first image as main image
                 'images' => $adjustedImages, // Keep all images with adjusted paths
                 'status' => $row['status'],
                 'information' => $informationColumnExists ? $row['information'] ?? null : null

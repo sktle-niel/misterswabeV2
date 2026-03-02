@@ -83,6 +83,13 @@ function renderProducts(productsToRender) {
     let sizeDisplay = product.size;
     if (!sizeDisplay || sizeDisplay === "null" || sizeDisplay === "N/A") {
       sizeDisplay = "Not set/None";
+    } else {
+      // Check if sizes are numeric (like 39, 40, 41, etc.) and add EUR prefix
+      const sizes = sizeDisplay.split(',').map(s => s.trim());
+      const allNumeric = sizes.every(s => !isNaN(s) && s !== '');
+      if (allNumeric && sizes.length > 0) {
+        sizeDisplay = sizes.map(s => 'EUR ' + s).join(', ');
+      }
     }
 
     row.innerHTML = `
@@ -93,7 +100,7 @@ function renderProducts(productsToRender) {
             <td><span class="badge badge-info">${product.category}</span></td>
             <td style="font-weight: 600;">${product.price}</td>
             <td style="${stockClass ? `color: ${stockClass}; font-weight: 600;` : ""}">${product.stock}</td>
-            <td>${sizeDisplay}</td>
+            <td style="font-size: 0.875rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${sizeDisplay}">${sizeDisplay}</td>
             <td style="font-size: 0.875rem; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${colorDisplay}">${colorDisplay}</td>
             <td><span class="badge ${statusClass}">${product.status}</span></td>
             <td>
@@ -182,6 +189,17 @@ function getPaginatedProducts(products) {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   return products.slice(startIndex, endIndex);
+}
+
+// Sort products by created_at in descending order (newest first)
+function sortProductsByNewest() {
+  products.sort((a, b) => {
+    // Get created_at values and parse as dates
+    const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+    const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+    // Descending order (newest first - most recent date comes first)
+    return dateB - dateA;
+  });
 }
 
 function filterProducts() {
@@ -642,7 +660,7 @@ function addProduct() {
           color: data.all_colors ? data.all_colors.join(", ") : "N/A",
         };
 
-        products.push(newProduct);
+        products.unshift(newProduct);
         localStorage.setItem("inventoryProducts", JSON.stringify(products));
         filterProducts();
 
@@ -700,6 +718,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Sort products by newest first
+  sortProductsByNewest();
+  
   filterProducts();
 
   document
