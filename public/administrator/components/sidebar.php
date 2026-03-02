@@ -16,6 +16,16 @@
             </span>
             Dashboard
         </a>
+
+        <a href="?page=categories" class="nav-item <?php echo ($currentPage == 'categories') ? 'active' : ''; ?>">
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                </svg>
+            </span>
+            Categories
+        </a>
         
         <a href="?page=inventory" class="nav-item <?php echo ($currentPage == 'inventory') ? 'active' : ''; ?>">
             <span class="nav-icon">
@@ -26,6 +36,17 @@
                 </svg>
             </span>
             Inventory
+        </a>
+        
+        <a href="?page=inventoryAlerts" class="nav-item <?php echo ($currentPage == 'inventoryAlerts') ? 'active' : ''; ?>">
+            <span class="nav-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+            </span>
+            Inventory Alerts
         </a>
         
         <a href="?page=orders" class="nav-item <?php echo ($currentPage == 'orders') ? 'active' : ''; ?>">
@@ -39,18 +60,6 @@
             Orders
         </a>
         
-        <a href="?page=categories" class="nav-item <?php echo ($currentPage == 'categories') ? 'active' : ''; ?>">
-            <span class="nav-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="3" width="7" height="7"></rect>
-                    <rect x="14" y="14" width="7" height="7"></rect>
-                    <rect x="3" y="14" width="7" height="7"></rect>
-                </svg>
-            </span>
-            Categories
-        </a>
-        
         <a href="?page=accounts" class="nav-item <?php echo ($currentPage == 'accounts') ? 'active' : ''; ?>">
             <span class="nav-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -61,15 +70,6 @@
                 </svg>
             </span>
             Accounts
-        </a>
-        
-        <a href="?page=printSku" class="nav-item <?php echo ($currentPage == 'printSku') ? 'active' : ''; ?>">
-            <span class="nav-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polygon points="13,2 3,14 12,14 11,22 21,10 12,10 13,2"></polygon>
-                </svg>
-            </span>
-            Generate SKU
         </a>
         
         <a href="?page=reports" class="nav-item <?php echo ($currentPage == 'reports') ? 'active' : ''; ?>">

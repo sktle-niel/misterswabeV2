@@ -32,6 +32,9 @@
         case 'inventory':
             include 'pages/inventory.php';
             break;
+        case 'inventoryAlerts':
+            include 'pages/inventoryAlerts.php';
+            break;
         case 'orders':
             include 'pages/orders.php';
             break;

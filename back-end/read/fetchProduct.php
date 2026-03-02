@@ -7,8 +7,14 @@ function fetchProducts() {
 // Check if information column exists
     $informationColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'information'")->num_rows > 0;
     
+// Check if color column exists
+    $colorColumnExists = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'")->num_rows > 0;
+    
 // Build query - only select columns that exist
 $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.status, i.size, i.size_quantities, i.size_color_quantities";
+    if ($colorColumnExists) {
+        $sql .= ", i.color";
+    }
     if ($informationColumnExists) {
         $sql .= ", i.information";
     }
@@ -108,6 +114,21 @@ $sql = "SELECT i.id, i.name, i.sku, i.category, i.price, i.stock, i.images, i.st
                 if (!empty($colorParts)) {
                     $colorDisplay = implode(', ', $colorParts);
                 }
+            }
+            
+            // Get color from color column if available
+            $colorColumnValue = '';
+            if ($colorColumnExists && isset($row['color'])) {
+                $colorColumnValue = $row['color'];
+                // If color column has JSON array, decode it for display
+                $colorArray = json_decode($colorColumnValue, true);
+                if (is_array($colorArray) && !empty($colorArray)) {
+                    $colorColumnValue = implode(', ', $colorArray);
+                }
+            }
+            // Use color column value if colorDisplay is still N/A
+            if ($colorDisplay === 'N/A' && !empty($colorColumnValue)) {
+                $colorDisplay = $colorColumnValue;
             }
 
             $products[] = [

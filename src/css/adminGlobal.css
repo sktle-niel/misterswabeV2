@@ -276,22 +276,22 @@ tbody tr:hover {
 }
 
 .badge-success {
-  background: rgba(255, 215, 0, 0.1);
+  background: rgba(255, 215, 0, 0.15);
   color: #000000;
 }
 
 .badge-warning {
-  background: rgba(249, 115, 22, 0.1);
-  color: #f97316;
+  background: rgba(249, 115, 22, 0.15);
+  color: #000000;
 }
 
 .badge-danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #000000;
 }
 
 .badge-info {
-  background: rgba(255, 215, 0, 0.1);
+  background: rgba(255, 215, 0, 0.15);
   color: #000000;
 }
 
