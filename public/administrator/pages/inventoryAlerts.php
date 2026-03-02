@@ -3,11 +3,15 @@ include __DIR__ . '/../components/editProductModal.php';
 include __DIR__ . '/../components/deleteProductModal.php';
 include __DIR__ . '/../components/addQuantityModal.php';
 include __DIR__ . '/../components/skuModal.php';
+include __DIR__ . '/../components/summaryModal.php';
 include '../../back-end/create/addProduct.php';
 include '../../back-end/read/fetchProduct.php';
 include '../../back-end/update/editProduct.php';
 include '../../back-end/delete/removeProduct.php';
 include '../../auth/sessionCheck.php';
+
+// Fetch products from database
+$products = fetchProducts();
 ?>
 
 <div class="main-content">
@@ -140,6 +144,8 @@ include '../../auth/sessionCheck.php';
 <script src="../../../src/js/inventory.js?v=<?php echo time(); ?>"></script>
 
 <script>
+let products = <?php echo json_encode($products); ?>;
+
 function loadInventoryAlerts() {
     fetch('../../back-end/read/fetchInventoryAlerts.php')
         .then(response => response.json())
