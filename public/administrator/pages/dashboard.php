@@ -12,13 +12,30 @@ function getTotalProducts() {
     return $row['total'] ?? 0;
 }
 
-// Function to get low stock items (stock < 10)
-function getLowStockItems() {
+// Function to get inventory alerts (out of stock + low stock)
+function getInventoryAlerts() {
     global $conn;
-    $query = "SELECT COUNT(*) as total FROM inventory WHERE stock < 10";
-    $result = $conn->query($query);
-    $row = $result->fetch_assoc();
-    return $row['total'] ?? 0;
+    // First check if minimum_stock column exists
+    $checkColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'minimum_stock'");
+    if (!$checkColumn || $checkColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN minimum_stock INT DEFAULT 10");
+    }
+    
+    // Get out of stock (stock = 0)
+    $outOfStockQuery = "SELECT COUNT(*) as total FROM inventory WHERE stock = 0";
+    $outOfStockResult = $conn->query($outOfStockQuery);
+    $outOfStock = $outOfStockResult->fetch_assoc()['total'] ?? 0;
+    
+    // Get low stock (stock > 0 but <= minimum_stock, default 10)
+    $lowStockQuery = "SELECT COUNT(*) as total FROM inventory WHERE stock > 0 AND stock <= COALESCE(minimum_stock, 10)";
+    $lowStockResult = $conn->query($lowStockQuery);
+    $lowStock = $lowStockResult->fetch_assoc()['total'] ?? 0;
+    
+    return [
+        'total' => $outOfStock + $lowStock,
+        'out_of_stock' => $outOfStock,
+        'low_stock' => $lowStock
+    ];
 }
 
 // Function to get total revenue
@@ -105,7 +122,7 @@ function getCategoryData() {
 
 // Call all functions to get data
 $totalProducts = getTotalProducts();
-$lowStockItems = getLowStockItems();
+$inventoryAlerts = getInventoryAlerts();
 $totalRevenue = getTotalRevenue();
 $bestSeller = getBestSeller();
 $totalOrders = getTotalOrders();
@@ -154,10 +171,10 @@ $categoryValues = json_encode(array_column($categoryData, 'total'));
                 <div class="stat-change" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">All products</div>
         </div>
         
-        <div class="stat-card" style="--stat-color: #10b981;">
+        <div class="stat-card" style="--stat-color: #f59e0b;">
             <div class="stat-header">
                 <div>
-                    <div class="stat-label">Low Stock Items</div>
+                    <div class="stat-label">Inventory Alerts</div>
                 </div>
                 <div class="stat-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -167,8 +184,15 @@ $categoryValues = json_encode(array_column($categoryData, 'total'));
                     </svg>
                 </div>
             </div>
-            <div class="stat-value"><?php echo number_format($lowStockItems); ?></div>
-            <div class="stat-change" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">Requires attention</div>
+            <div class="stat-value">
+                <?php echo number_format($inventoryAlerts['total']); ?>
+                <?php if ($inventoryAlerts['total'] > 0): ?>
+                <span style="font-size: 12px; font-weight: normal; background: #fee2e2; color: #dc2626; padding: 2px 8px; border-radius: 10px; margin-left: 8px;">
+                    <?php echo $inventoryAlerts['out_of_stock']; ?> out, <?php echo $inventoryAlerts['low_stock']; ?> low
+                </span>
+                <?php endif; ?>
+            </div>
+            <a href="?page=inventoryAlerts" class="stat-change" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; display: block; text-decoration: none;">View Alerts →</a>
         </div>
         
         <div class="stat-card" style="--stat-color: #10b981;">
