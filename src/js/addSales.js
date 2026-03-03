@@ -51,60 +51,104 @@
     }
   }
 
-  // Lookup product by SKU and fill form
   function lookupProductBySKU(sku, row) {
     if (!sku || sku.trim() === "") {
       return;
     }
 
-    const product = products.find((p) => p.sku === sku.trim());
+    const trimmedSku = sku.trim();
+    let product = null;
+    let variantInfo = null;
+    
+    // First, check if this is a variant SKU (contains size/color info)
+    // Try to find in variant_skus of any product
+    for (const p of products) {
+      if (p.variant_skus) {
+        // Try exact match first
+        if (p.variant_skus[trimmedSku]) {
+          product = p;
+          variantInfo = p.variant_skus[trimmedSku];
+          break;
+        }
+        
+        // Try case-insensitive match
+        const variantKeys = Object.keys(p.variant_skus);
+        for (const key of variantKeys) {
+          if (key.toLowerCase() === trimmedSku.toLowerCase()) {
+            product = p;
+            variantInfo = p.variant_skus[key];
+            break;
+          }
+        }
+        if (product) break;
+      }
+    }
+    
+    // If not found as variant, check if it's a base SKU
+    if (!product) {
+      product = products.find((p) => p.sku === trimmedSku);
+    }
 
     if (product) {
       // Fill in the product details
       row.querySelector(".product-id").value = product.id;
       row.querySelector('input[name*="[price]"]').value = product.price;
 
-      // Populate size options
+      // Hide dropdowns and auto-populate from variant SKU
       const sizeSelect = row.querySelector(".product-size");
-      sizeSelect.innerHTML = '<option value="">Select Size</option>';
+      const colorSelect = row.querySelector(".product-color");
+      const sizeGroup = sizeSelect.closest(".form-group");
+      const colorGroup = colorSelect.closest(".form-group");
+      
+      // Hide size and color dropdowns
+      sizeGroup.style.display = "none";
+      colorGroup.style.display = "none";
+      sizeSelect.removeAttribute("required");
+      colorSelect.removeAttribute("required");
 
-      // Fetch sizes from getSizes.php
-      fetch(`../../back-end/read/getSizes.php?sku=${encodeURIComponent(sku)}`)
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success && data.sizes.length > 0) {
-            data.sizes.forEach((sizeData) => {
-              if (sizeData.stock > 0) {
-                const option = document.createElement("option");
-                option.value = sizeData.size;
-                option.textContent = `${sizeData.size} (${sizeData.stock})`;
-                sizeSelect.appendChild(option);
-              }
-            });
-            // Make size required if sizes are available
-            if (sizeSelect.options.length > 1) {
-              sizeSelect.setAttribute("required", "required");
-              sizeSelect.dataset.hasSizes = "true";
-            } else {
-              // No sizes with stock available
-              sizeSelect.removeAttribute("required");
-              sizeSelect.dataset.hasSizes = "false";
+      // Store variant info in row for form submission
+      row.variantInfo = variantInfo;
+
+      if (variantInfo) {
+        // This is a variant SKU - auto-fill size and color
+        // Set hidden fields for size and color
+        sizeSelect.innerHTML = `<option value="${variantInfo.size}">${variantInfo.size}</option>`;
+        colorSelect.innerHTML = `<option value="${variantInfo.color}">${variantInfo.color}</option>`;
+        
+        // Set quantity max to available stock
+        const qtyInput = row.querySelector('input[name*="[quantity]"]');
+        qtyInput.max = variantInfo.quantity;
+        
+        // If quantity entered exceeds available, cap it
+        if (parseInt(qtyInput.value) > variantInfo.quantity) {
+          qtyInput.value = variantInfo.quantity;
+        }
+        
+        // Store extracted size and color for form submission
+        row.extractedSize = variantInfo.size;
+        row.extractedColor = variantInfo.color;
+      } else {
+        // Base SKU - fetch sizes to get variant information
+        fetch(`../../back-end/read/getSizes.php?sku=${encodeURIComponent(trimmedSku)}`)
+          .then((response) => response.json())
+          .then((data) => {
+            row.sizeColorData = data.sizes || [];
+            
+            // Check if product has sizes with stock
+            const hasSizesWithStock = data.sizes && data.sizes.some(s => s.stock > 0);
+            
+            if (!hasSizesWithStock) {
+              // Simple product - no sizes, just use base SKU
+              sizeSelect.innerHTML = '<option value="N/A">N/A</option>';
+              colorSelect.innerHTML = '<option value="N/A">N/A</option>';
+              row.extractedSize = 'N/A';
+              row.extractedColor = 'N/A';
             }
-          } else {
-            // No sizes available, make size optional and hide
-            sizeSelect.removeAttribute("required");
-            sizeSelect.dataset.hasSizes = "false";
-            sizeSelect.closest(".form-group").style.display = "none";
-            console.log("No sizes available for this product");
-          }
-        })
-        .catch((error) => {
-          console.error("Error fetching sizes:", error);
-          // On error, make size optional and hide
-          sizeSelect.removeAttribute("required");
-          sizeSelect.dataset.hasSizes = "false";
-          sizeSelect.closest(".form-group").style.display = "none";
-        });
+          })
+          .catch((error) => {
+            console.error("Error fetching sizes:", error);
+          });
+      }
 
       // Display product name
       const nameDisplay = row.querySelector(".product-name-display");
@@ -112,6 +156,27 @@
         nameDisplay.textContent = product.name;
         nameDisplay.style.color = "green";
         nameDisplay.style.fontWeight = "bold";
+      }
+
+      // Display variant info (size and color)
+      const variantDisplay = row.querySelector(".product-variant-display");
+      if (variantDisplay) {
+        if (variantInfo) {
+          // This is a variant SKU - show size and color
+          let displayText = "";
+          if (variantInfo.size && variantInfo.size !== 'N/A') {
+            // Product has sizes - show both size and color
+            displayText = `<strong>Size:</strong> ${variantInfo.size} | <strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}`;
+          } else {
+            // Product has no sizes - show only color
+            displayText = `<strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}`;
+          }
+          variantDisplay.innerHTML = displayText;
+          variantDisplay.style.color = "#1f2937";
+        } else {
+          // Base SKU or no variant info
+          variantDisplay.textContent = "";
+        }
       }
 
       // Update total
@@ -234,15 +299,22 @@
             </div>
             <input type="hidden" name="products[${rowCount}][id]" class="product-id">
             <span class="product-name-display"></span>
+            <span class="product-variant-display" style="display: block; margin-top: 4px; font-size: 13px; color: #6b7280;"></span>
         </div>
         <div class="form-group">
             <label>Quantity</label>
             <input type="number" name="products[${rowCount}][quantity]" min="1" value="1" required>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="display: none;">
             <label>Size</label>
             <select name="products[${rowCount}][size]" class="product-size">
                 <option value="">Select Size</option>
+            </select>
+        </div>
+        <div class="form-group" style="display: none;">
+            <label>Color</label>
+            <select name="products[${rowCount}][color]" class="product-color">
+                <option value="">Select Color</option>
             </select>
         </div>
         <div class="form-group">
@@ -300,6 +372,82 @@
       if (e.target.name && e.target.name.includes("[quantity]")) {
         updateTotal();
       }
+      
+      // Size selection - populate colors
+      if (e.target.classList.contains("product-size")) {
+        const row = e.target.closest(".product-row");
+        const sizeSelect = e.target;
+        const colorSelect = row.querySelector(".product-color");
+        const selectedSize = sizeSelect.value;
+        
+        // Get the stored size data from the row
+        const sizeData = row.sizeColorData;
+        
+        colorSelect.innerHTML = '<option value="">Select Color</option>';
+        
+        if (sizeData && selectedSize) {
+          const sizeInfo = sizeData.find(s => s.size === selectedSize);
+          if (sizeInfo && sizeInfo.color_variants && sizeInfo.color_variants.length > 0) {
+            sizeInfo.color_variants.forEach((colorVariant) => {
+              if (colorVariant.quantity > 0) {
+                const option = document.createElement("option");
+                option.value = colorVariant.sku;
+                option.textContent = `${colorVariant.color} (${colorVariant.quantity})`;
+                option.dataset.color = colorVariant.color;
+                colorSelect.appendChild(option);
+              }
+            });
+            // Make color required if colors are available
+            if (colorSelect.options.length > 1) {
+              colorSelect.setAttribute("required", "required");
+              colorSelect.dataset.hasColors = "true";
+              colorSelect.closest(".form-group").style.display = "block";
+            } else {
+              colorSelect.removeAttribute("required");
+              colorSelect.dataset.hasColors = "false";
+              colorSelect.closest(".form-group").style.display = "none";
+            }
+          } else {
+            // No colors with stock available
+            colorSelect.removeAttribute("required");
+            colorSelect.dataset.hasColors = "false";
+            colorSelect.closest(".form-group").style.display = "none";
+          }
+        }
+      }
+      
+      // Color selection - update SKU and validate
+      if (e.target.classList.contains("product-color")) {
+        const row = e.target.closest(".product-row");
+        const colorSelect = e.target;
+        const selectedOption = colorSelect.options[colorSelect.selectedIndex];
+        
+        if (selectedOption && selectedOption.value) {
+          // Update SKU with the full variant SKU
+          const skuInput = row.querySelector(".product-sku");
+          skuInput.value = selectedOption.value;
+          
+          // Get color name from data attribute
+          const colorName = selectedOption.dataset.color || '';
+          
+          // Get size data to find quantity for this color
+          const sizeSelect = row.querySelector(".product-size");
+          const sizeData = row.sizeColorData;
+          const selectedSize = sizeSelect.value;
+          
+          if (sizeData && selectedSize) {
+            const sizeInfo = sizeData.find(s => s.size === selectedSize);
+            if (sizeInfo && sizeInfo.color_variants) {
+              const colorVariant = sizeInfo.color_variants.find(c => c.sku === selectedOption.value);
+              if (colorVariant) {
+                // Set the quantity input max to available stock
+                const qtyInput = row.querySelector('input[name*="[quantity]"]');
+                qtyInput.max = colorVariant.quantity;
+              }
+            }
+          }
+        }
+      }
     });
 
     // Scan button click
@@ -331,8 +479,8 @@
 
         rows.forEach((row, index) => {
           const productId = row.querySelector(".product-id").value;
-          const sizeSelect = row.querySelector(".product-size");
           const skuInput = row.querySelector(".product-sku");
+          const sku = skuInput.value.trim();
 
           // Check if product is valid
           if (!productId) {
@@ -342,19 +490,22 @@
             return;
           }
 
-          // Check if size is required and not selected
-          if (
-            sizeSelect.hasAttribute("required") &&
-            sizeSelect.dataset.hasSizes === "true" &&
-            !sizeSelect.value
-          ) {
-            isValid = false;
-            errorMessage = `Please select a size for product in row ${index + 1}`;
-            sizeSelect.style.borderColor = "red";
-            setTimeout(() => {
-              sizeSelect.style.borderColor = "";
-            }, 3000);
-            return;
+          // Use extracted size/color from variant SKU if available
+          const sizeSelect = row.querySelector(".product-size");
+          const colorSelect = row.querySelector(".product-color");
+          
+          // If we have extracted variant info, use it; otherwise use dropdown values
+          const size = row.extractedSize || sizeSelect.value;
+          const color = row.extractedColor || colorSelect.value;
+          
+          // Check if size is required and not available
+          if (row.variantInfo || (row.sizeColorData && row.sizeColorData.length > 0)) {
+            // Product has variants - size/color should be set
+            if (!size || size === '' || size === 'N/A') {
+              // Need to ensure we have size info for products with variants
+              console.log("Row " + (index+1) + " variantInfo:", row.variantInfo);
+              console.log("Row " + (index+1) + " extractedSize:", row.extractedSize);
+            }
           }
         });
 
@@ -394,6 +545,13 @@
               select.removeAttribute("required");
               select.dataset.hasSizes = "false";
             });
+            
+            // Reset color selects
+            document.querySelectorAll(".product-color").forEach((select) => {
+              select.innerHTML = '<option value="">Select Color</option>';
+              select.removeAttribute("required");
+              select.dataset.hasColors = "false";
+            });
 
             updateTotal();
           } else {
@@ -421,6 +579,13 @@
           select.innerHTML = '<option value="">Select Size</option>';
           select.removeAttribute("required");
           select.dataset.hasSizes = "false";
+        });
+        
+        // Reset color selects
+        document.querySelectorAll(".product-color").forEach((select) => {
+          select.innerHTML = '<option value="">Select Color</option>';
+          select.removeAttribute("required");
+          select.dataset.hasColors = "false";
         });
 
         updateTotal();
