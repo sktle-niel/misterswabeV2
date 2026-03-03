@@ -1,3 +1,5 @@
 2026-02-14 07:42:06 - Saved: category_report_accessories_2026-02-14.pdf (154175 bytes)
 2026-02-14 08:41:50 - Saved: category_report_collections_2026-02-14.pdf (154160 bytes)
 2026-02-14 08:41:56 - Saved: category_report_shirts_2026-02-14.pdf (154136 bytes)
+2026-03-03 01:52:34 - ERROR: pdfContent is NULL for Inventory Alerts Report - March 03, 2026.pdf
+2026-03-03 01:53:53 - Saved: sales_report_2026-03-03.pdf (153751 bytes)

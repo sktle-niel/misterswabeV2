@@ -20,6 +20,16 @@ $products = fetchProducts();
             <h2 class="page-title">Inventory Alerts</h2>
             <p class="page-subtitle">Monitor products that need restocking</p>
         </div>
+        <button onclick="exportInventoryAlertsPDF()" style="display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: black; color: white; border: none; border-radius: var(--radius-md); cursor: pointer; font-size: 14px; font-weight: 500;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Export PDF
+        </button>
     </div>
 
     <!-- Summary Cards -->
@@ -228,4 +238,8 @@ function renderLowStockTable(products) {
 
 // Load data on page load
 document.addEventListener('DOMContentLoaded', loadInventoryAlerts);
+
+function exportInventoryAlertsPDF() {
+    window.open('../../back-end/download/inventoryAlertsReport.php', '_blank');
+}
 </script>
