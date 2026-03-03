@@ -75,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             <input type="hidden" name="products[0][id]" class="product-id">
                             <span class="product-name-display"></span>
+                            <span class="product-variant-display" style="display: block; margin-top: 4px; font-size: 13px; color: #6b7280;"></span>
                         </div>
 
                         <div class="form-group">
@@ -82,10 +83,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <input type="number" name="products[0][quantity]" min="1" value="1" required>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group" style="display: none;">
                             <label>Size</label>
                             <select name="products[0][size]" class="product-size">
                                 <option value="">Select Size</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" style="display: none;">
+                            <label>Color</label>
+                            <select name="products[0][color]" class="product-color">
+                                <option value="">Select Color</option>
                             </select>
                         </div>
 
