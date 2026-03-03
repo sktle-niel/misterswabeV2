@@ -149,7 +149,6 @@
             console.error("Error fetching sizes:", error);
           });
       }
-
       // Display product name
       const nameDisplay = row.querySelector(".product-name-display");
       if (nameDisplay) {
@@ -158,25 +157,49 @@
         nameDisplay.style.fontWeight = "bold";
       }
 
-      // Display variant info (size and color)
+      // Display variant info (size and color) and product info on same line
       const variantDisplay = row.querySelector(".product-variant-display");
+      const infoDisplay = row.querySelector(".product-info-display");
+      
+      // Build product info text (brand, material, dimensions, etc.)
+      let infoText = "";
+      if (product.information) {
+        const info = product.information;
+        if (info.brand && typeof info.brand === 'string' && info.brand.trim() !== '') {
+          infoText += ` | <strong>Brand:</strong> ${info.brand}`;
+        }
+        if (info.material && typeof info.material === 'string' && info.material.trim() !== '') {
+          infoText += ` | <strong>Material:</strong> ${info.material}`;
+        }
+        if (info.dimensions && typeof info.dimensions === 'string' && info.dimensions.trim() !== '') {
+          infoText += ` | <strong>Dimensions:</strong> ${info.dimensions}`;
+        }
+        if (info.product_info && typeof info.product_info === 'string' && info.product_info.trim() !== '') {
+          infoText += ` | <strong>Info:</strong> ${info.product_info}`;
+        }
+      }
+      
       if (variantDisplay) {
         if (variantInfo) {
-          // This is a variant SKU - show size and color
+          // This is a variant SKU - show size and color with info
           let displayText = "";
           if (variantInfo.size && variantInfo.size !== 'N/A') {
-            // Product has sizes - show both size and color
-            displayText = `<strong>Size:</strong> ${variantInfo.size} | <strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}`;
+            displayText = `<strong>Size:</strong> ${variantInfo.size} | <strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}${infoText}`;
           } else {
-            // Product has no sizes - show only color
-            displayText = `<strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}`;
+            displayText = `<strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}${infoText}`;
           }
           variantDisplay.innerHTML = displayText;
           variantDisplay.style.color = "#1f2937";
         } else {
-          // Base SKU or no variant info
-          variantDisplay.textContent = "";
+          // Base SKU - show stock with info
+          variantDisplay.innerHTML = `<strong>Stock:</strong> ${product.stock || 0}${infoText}`;
+          variantDisplay.style.color = "#1f2937";
         }
+      }
+      
+      // Hide the separate info display since we're showing it in variant display now
+      if (infoDisplay) {
+        infoDisplay.style.display = 'none';
       }
 
       // Update total
@@ -300,6 +323,7 @@
             <input type="hidden" name="products[${rowCount}][id]" class="product-id">
             <span class="product-name-display"></span>
             <span class="product-variant-display" style="display: block; margin-top: 4px; font-size: 13px; color: #6b7280;"></span>
+            <span class="product-info-display" style="display: block; margin-top: 4px; font-size: 12px; color: #6b7280;"></span>
         </div>
         <div class="form-group">
             <label>Quantity</label>
@@ -540,6 +564,19 @@
                 display.textContent = "";
               });
 
+            document
+              .querySelectorAll(".product-variant-display")
+              .forEach((display) => {
+                display.textContent = "";
+              });
+
+            document
+              .querySelectorAll(".product-info-display")
+              .forEach((display) => {
+                display.textContent = "";
+                display.style.display = "none";
+              });
+
             document.querySelectorAll(".product-size").forEach((select) => {
               select.innerHTML = '<option value="">Select Size</option>';
               select.removeAttribute("required");
@@ -572,6 +609,21 @@
           .querySelectorAll(".product-name-display")
           .forEach((display) => {
             display.textContent = "";
+          });
+
+        // Clear variant displays
+        document
+          .querySelectorAll(".product-variant-display")
+          .forEach((display) => {
+            display.textContent = "";
+          });
+
+        // Clear info displays
+        document
+          .querySelectorAll(".product-info-display")
+          .forEach((display) => {
+            display.textContent = "";
+            display.style.display = "none";
           });
 
         // Reset size selects
