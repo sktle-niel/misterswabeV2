@@ -5,8 +5,14 @@ header('Access-Control-Allow-Origin: *');
 require_once '../../config/connection.php';
 
 try {
-    // Query to get all products from inventory including variant_skus
-    $query = "SELECT id, sku, name, price, size, variant_skus, size_quantities, size_color_quantities, stock FROM inventory";
+    // Check if information column exists, if not create it
+    $checkInfoColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'information'");
+    if (!$checkInfoColumn || $checkInfoColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN information JSON DEFAULT NULL");
+    }
+    
+    // Query to get all products from inventory including variant_skus and information
+    $query = "SELECT id, sku, name, price, size, variant_skus, size_quantities, size_color_quantities, stock, information FROM inventory";
     
     $result = $conn->query($query);
     
@@ -21,11 +27,8 @@ try {
         $variantSkus = json_decode($row['variant_skus'] ?? '[]', true);
         $sizeColorQuantities = json_decode($row['size_color_quantities'] ?? '{}', true);
         
-        // Build a map of variant SKU to size/color/quantity
         $variantMap = [];
         
-        // Handle variant_skus format: {"39-black": "SHO-SAP-3JOX-39-BLACK", "41-red": "SHO-SAP-3JOX-41-RED"}
-        // OR for products without sizes: {"BLUE": "ACC-STI-7JX9-BLUE"}
         if (!empty($variantSkus) && is_array($variantSkus)) {
             $hasSizes = !empty($row['size']) && $row['size'] !== 'N/A' && $row['size'] !== '' && $row['size'] !== 'Simple Product';
             
@@ -85,13 +88,20 @@ try {
             }
         }
         
-        // Also check size_color_quantities for variants not in variant_skus
         if (!empty($sizeColorQuantities)) {
+            $hasSizes = !empty($row['size']) && $row['size'] !== 'N/A' && $row['size'] !== '' && $row['size'] !== 'Simple Product';
+            
             foreach ($sizeColorQuantities as $size => $colors) {
                 if (is_array($colors)) {
                     foreach ($colors as $color => $colorData) {
-                        // Generate variant SKU if not already in map
-                        $variantSku = $baseSku . '-' . $size . '-' . strtoupper($color);
+                        if ($hasSizes) {
+                            $variantSku = $baseSku . '-' . $size . '-' . strtoupper($color);
+                            $displaySize = $size;
+                        } else {
+                            $variantSku = $baseSku . '-' . strtoupper($color);
+                            $displaySize = 'N/A';
+                        }
+                        
                         if (!isset($variantMap[$variantSku])) {
                             if (is_array($colorData) && isset($colorData['quantity'])) {
                                 $quantity = intval($colorData['quantity']);
@@ -99,7 +109,7 @@ try {
                                 $quantity = intval($colorData);
                             }
                             $variantMap[$variantSku] = [
-                                'size' => $size,
+                                'size' => $displaySize,
                                 'color' => $color,
                                 'quantity' => $quantity
                             ];
@@ -107,6 +117,12 @@ try {
                     }
                 }
             }
+        }
+        
+        // Decode information column
+        $information = json_decode($row['information'] ?? '{}', true);
+        if (!is_array($information)) {
+            $information = [];
         }
         
         // Add base product
@@ -117,7 +133,8 @@ try {
             'price' => floatval($row['price']),
             'size' => $row['size'] ?: 'N/A',
             'variant_skus' => $variantMap,
-            'stock' => intval($row['stock'] ?? 0)
+            'stock' => intval($row['stock'] ?? 0),
+            'information' => $information
         );
     }
     
