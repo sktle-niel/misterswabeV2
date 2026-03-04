@@ -44,7 +44,6 @@
         products = [];
         return;
       }
-      console.log("Products loaded:", products.length);
     } catch (error) {
       console.error("Error fetching products:", error);
       products = [];
@@ -57,6 +56,7 @@
     }
 
     const trimmedSku = sku.trim();
+    
     let product = null;
     let variantInfo = null;
     
@@ -149,58 +149,8 @@
             console.error("Error fetching sizes:", error);
           });
       }
-      // Display product name
-      const nameDisplay = row.querySelector(".product-name-display");
-      if (nameDisplay) {
-        nameDisplay.textContent = product.name;
-        nameDisplay.style.color = "green";
-        nameDisplay.style.fontWeight = "bold";
-      }
-
-      // Display variant info (size and color) and product info on same line
-      const variantDisplay = row.querySelector(".product-variant-display");
-      const infoDisplay = row.querySelector(".product-info-display");
-      
-      // Build product info text (brand, material, dimensions, etc.)
-      let infoText = "";
-      if (product.information) {
-        const info = product.information;
-        if (info.brand && typeof info.brand === 'string' && info.brand.trim() !== '') {
-          infoText += ` | <strong>Brand:</strong> ${info.brand}`;
-        }
-        if (info.material && typeof info.material === 'string' && info.material.trim() !== '') {
-          infoText += ` | <strong>Material:</strong> ${info.material}`;
-        }
-        if (info.dimensions && typeof info.dimensions === 'string' && info.dimensions.trim() !== '') {
-          infoText += ` | <strong>Dimensions:</strong> ${info.dimensions}`;
-        }
-        if (info.product_info && typeof info.product_info === 'string' && info.product_info.trim() !== '') {
-          infoText += ` | <strong>Info:</strong> ${info.product_info}`;
-        }
-      }
-      
-      if (variantDisplay) {
-        if (variantInfo) {
-          // This is a variant SKU - show size and color with info
-          let displayText = "";
-          if (variantInfo.size && variantInfo.size !== 'N/A') {
-            displayText = `<strong>Size:</strong> ${variantInfo.size} | <strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}${infoText}`;
-          } else {
-            displayText = `<strong>Color:</strong> ${variantInfo.color} | <strong>Stock:</strong> ${variantInfo.quantity}${infoText}`;
-          }
-          variantDisplay.innerHTML = displayText;
-          variantDisplay.style.color = "#1f2937";
-        } else {
-          // Base SKU - show stock with info
-          variantDisplay.innerHTML = `<strong>Stock:</strong> ${product.stock || 0}${infoText}`;
-          variantDisplay.style.color = "#1f2937";
-        }
-      }
-      
-      // Hide the separate info display since we're showing it in variant display now
-      if (infoDisplay) {
-        infoDisplay.style.display = 'none';
-      }
+      // Update inline product info display
+      updateInlineProductInfo(row, product, variantInfo);
 
       // Update total
       updateTotal();
@@ -218,16 +168,8 @@
       row.querySelector(".product-id").value = "";
       row.querySelector('input[name*="[price]"]').value = "";
 
-      const sizeSelect = row.querySelector(".product-size");
-      sizeSelect.innerHTML = '<option value="">Select Size</option>';
-      sizeSelect.removeAttribute("required");
-      sizeSelect.dataset.hasSizes = "false";
-
-      const nameDisplay = row.querySelector(".product-name-display");
-      if (nameDisplay) {
-        nameDisplay.textContent = "Product not found";
-        nameDisplay.style.color = "red";
-      }
+      // Reset inline product info
+      resetInlineProductInfo(row);
 
       // Visual feedback
       const skuInput = row.querySelector(".product-sku");
@@ -235,6 +177,105 @@
       setTimeout(() => {
         skuInput.style.borderColor = "";
       }, 2000);
+    }
+  }
+  
+  // Update inline product info for each row
+  function updateInlineProductInfo(row, product, variantInfo) {
+    const infoImage = row.querySelector(".info-image");
+    const infoName = row.querySelector(".info-name");
+    const infoPrice = row.querySelector(".info-price");
+    const infoDetails = row.querySelector(".info-details");
+    const nameDisplay = row.querySelector(".product-name-display");
+    
+    // Set product image
+    if (infoImage) {
+      const imageUrl = product.image || '';
+      if (imageUrl) {
+        infoImage.src = imageUrl;
+        infoImage.style.display = "block";
+      } else {
+        infoImage.src = "";
+        infoImage.style.display = "none";
+      }
+    }
+    if (infoName) {
+      infoName.textContent = product.name || "N/A";
+    }
+    if (infoPrice) {
+      infoPrice.textContent = "₱" + (parseFloat(product.price) || 0).toFixed(2);
+    }
+    
+    // Build details text
+    let detailsText = "";
+    if (variantInfo) {
+      if (variantInfo.size && variantInfo.size !== 'N/A') {
+        detailsText += `Size: ${variantInfo.size} | `;
+      }
+      if (variantInfo.color) {
+        detailsText += `Color: ${variantInfo.color} | `;
+      }
+      detailsText += `Stock: ${variantInfo.quantity || 0}`;
+    } else {
+      detailsText += `Stock: ${product.stock || 0}`;
+    }
+    
+    // Add additional info if available
+    if (product.information) {
+      const info = product.information;
+      if (info.brand && typeof info.brand === 'string' && info.brand.trim() !== '') {
+        detailsText += ` | Brand: ${info.brand}`;
+      }
+      if (info.material && typeof info.material === 'string' && info.material.trim() !== '') {
+        detailsText += ` | Material: ${info.material}`;
+      }
+    }
+    
+    if (infoDetails) {
+      infoDetails.textContent = detailsText;
+    }
+    
+    // Also update the name display if it exists
+    if (nameDisplay) {
+      nameDisplay.textContent = product.name;
+      nameDisplay.style.color = "green";
+    }
+    
+    // Update row total
+    updateRowTotal(row);
+  }
+  
+  // Reset inline product info
+  function resetInlineProductInfo(row) {
+    const infoImage = row.querySelector(".info-image");
+    const infoName = row.querySelector(".info-name");
+    const infoPrice = row.querySelector(".info-price");
+    const infoDetails = row.querySelector(".info-details");
+    const nameDisplay = row.querySelector(".product-name-display");
+    
+    // Reset product image
+    if (infoImage) {
+      infoImage.src = "";
+      infoImage.style.display = "none";
+    }
+    if (infoName) infoName.textContent = "-";
+    if (infoPrice) infoPrice.textContent = "₱0.00";
+    if (infoDetails) infoDetails.textContent = "";
+    if (nameDisplay) {
+      nameDisplay.textContent = "Product not found";
+      nameDisplay.style.color = "red";
+    }
+    
+    updateRowTotal(row);
+  }
+  
+  // Update row total (price * quantity)
+  function updateRowTotal(row) {
+    const price = parseFloat(row.querySelector('input[name*="[price]"]').value) || 0;
+    const quantity = parseInt(row.querySelector('input[name*="[quantity]"]').value) || 0;
+    const rowTotal = row.querySelector(".row-total");
+    if (rowTotal) {
+      rowTotal.textContent = "₱" + (price * quantity).toFixed(2);
     }
   }
 
@@ -251,7 +292,6 @@
       .decodeFromVideoDevice(null, "scanner-video", (result, err) => {
         if (result) {
           const code = result.text;
-          console.log("Barcode detected:", code);
 
           // Fill the SKU input
           const skuInput = currentRow.querySelector(".product-sku");
@@ -302,6 +342,99 @@
     document.getElementById("totalAmountInput").value = total.toFixed(2);
   }
 
+  // Update the right-side product info panel
+  function updateProductInfoPanel(product, variantInfo) {
+    const selectedProductInfo = document.getElementById("selectedProductInfo");
+    const noProductSelected = document.getElementById("noProductSelected");
+    const infoProductName = document.getElementById("infoProductName");
+    const infoProductPrice = document.getElementById("infoProductPrice");
+    const infoVariantDetails = document.getElementById("infoVariantDetails");
+    const infoProductExtra = document.getElementById("infoProductExtra");
+    const infoExtraDetails = document.getElementById("infoExtraDetails");
+    
+    if (!selectedProductInfo || !noProductSelected) {
+      return;
+    }
+    
+    // Show selected product info, hide "no product" message
+    selectedProductInfo.style.display = "block";
+    noProductSelected.style.display = "none";
+    
+    // Set product name
+    if (infoProductName) {
+      infoProductName.textContent = product.name || "N/A";
+    }
+    
+    // Set price
+    if (infoProductPrice) {
+      infoProductPrice.textContent = "₱" + (parseFloat(product.price) || 0).toFixed(2);
+    }
+    
+    // Set variant details
+    if (infoVariantDetails) {
+      let variantHtml = "";
+      if (variantInfo) {
+        if (variantInfo.size && variantInfo.size !== 'N/A') {
+          variantHtml += `<p style="margin: 0 0 8px 0;"><strong>Size:</strong> ${variantInfo.size}</p>`;
+        }
+        if (variantInfo.color) {
+          variantHtml += `<p style="margin: 0 0 8px 0;"><strong>Color:</strong> ${variantInfo.color}</p>`;
+        }
+        variantHtml += `<p style="margin: 0;"><strong>Stock:</strong> ${variantInfo.quantity || 0}</p>`;
+      } else {
+        variantHtml += `<p style="margin: 0;"><strong>Stock:</strong> ${product.stock || 0}</p>`;
+      }
+      infoVariantDetails.innerHTML = variantHtml;
+    }
+    
+    // Set additional product information (brand, material, dimensions, etc.)
+    let extraHtml = "";
+    let hasExtra = false;
+    
+    if (product.information) {
+      const info = product.information;
+      if (info.brand && typeof info.brand === 'string' && info.brand.trim() !== '') {
+        extraHtml += `<p style="margin: 0 0 6px 0;"><strong>Brand:</strong> ${info.brand}</p>`;
+        hasExtra = true;
+      }
+      if (info.material && typeof info.material === 'string' && info.material.trim() !== '') {
+        extraHtml += `<p style="margin: 0 0 6px 0;"><strong>Material:</strong> ${info.material}</p>`;
+        hasExtra = true;
+      }
+      if (info.dimensions && typeof info.dimensions === 'string' && info.dimensions.trim() !== '') {
+        extraHtml += `<p style="margin: 0 0 6px 0;"><strong>Dimensions:</strong> ${info.dimensions}</p>`;
+        hasExtra = true;
+      }
+      if (info.product_info && typeof info.product_info === 'string' && info.product_info.trim() !== '') {
+        extraHtml += `<p style="margin: 0;"><strong>Info:</strong> ${info.product_info}</p>`;
+        hasExtra = true;
+      }
+    }
+    
+    if (infoProductExtra && infoExtraDetails) {
+      if (hasExtra) {
+        infoExtraDetails.innerHTML = extraHtml;
+        infoProductExtra.style.display = "block";
+      } else {
+        infoProductExtra.style.display = "none";
+      }
+    }
+  }
+
+  // Reset the product info panel to default state
+  function resetProductInfoPanel() {
+    const selectedProductInfo = document.getElementById("selectedProductInfo");
+    const noProductSelected = document.getElementById("noProductSelected");
+    
+    if (!selectedProductInfo || !noProductSelected) {
+      return;
+    }
+    
+    // Hide selected product info, show "no product" message
+    selectedProductInfo.style.display = "none";
+    noProductSelected.style.display = "block";
+  }
+
   // Add new product row
   function addProductRow() {
     const container = document.getElementById("productsContainer");
@@ -324,6 +457,16 @@
             <span class="product-name-display"></span>
             <span class="product-variant-display" style="display: block; margin-top: 4px; font-size: 13px; color: #6b7280;"></span>
             <span class="product-info-display" style="display: block; margin-top: 4px; font-size: 12px; color: #6b7280;"></span>
+            <!-- Inline product info with image -->
+            <div class="inline-product-info" style="margin-top: 8px; padding: 10px; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb; display: flex; gap: 12px; align-items: flex-start;">
+                <img class="info-image" src="" alt="Product" style="width: 60px; height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid #e5e7eb; display: none;">
+                <div style="flex: 1;">
+                    <span class="info-name" style="font-weight: 600; color: #111827; display: block;">-</span>
+                    <span class="info-price" style="color: #059669; font-weight: 600;">₱0.00</span>
+                    <span class="info-details" style="display: block; font-size: 12px; color: #6b7280; margin-top: 4px;"></span>
+                </div>
+            </div>
+            <span class="row-total" style="display: block; font-weight: 600; color: #111827; margin-top: 8px;">₱0.00</span>
         </div>
         <div class="form-group">
             <label>Quantity</label>
@@ -370,6 +513,9 @@
     // Load products on page load
     loadProducts();
 
+    // Add first product row on page load
+    addProductRow();
+
     // Add product button
     document
       .getElementById("addProductBtn")
@@ -391,9 +537,11 @@
       }
     });
 
-    // Quantity change - update total
+    // Quantity change - update total and row total
     document.addEventListener("change", function (e) {
       if (e.target.name && e.target.name.includes("[quantity]")) {
+        const row = e.target.closest(".product-row");
+        updateRowTotal(row);
         updateTotal();
       }
       
@@ -440,7 +588,7 @@
         }
       }
       
-      // Color selection - update SKU and validate
+// Color selection - update SKU and validate
       if (e.target.classList.contains("product-color")) {
         const row = e.target.closest(".product-row");
         const colorSelect = e.target;
@@ -526,9 +674,7 @@
           if (row.variantInfo || (row.sizeColorData && row.sizeColorData.length > 0)) {
             // Product has variants - size/color should be set
             if (!size || size === '' || size === 'N/A') {
-              // Need to ensure we have size info for products with variants
-              console.log("Row " + (index+1) + " variantInfo:", row.variantInfo);
-              console.log("Row " + (index+1) + " extractedSize:", row.extractedSize);
+              // Log for debugging - size info required for products with variants
             }
           }
         });
@@ -591,6 +737,9 @@
             });
 
             updateTotal();
+            
+            // Reset the product info panel
+            resetProductInfoPanel();
           } else {
             showInvalidMessage();
           }
@@ -638,6 +787,11 @@
           select.innerHTML = '<option value="">Select Color</option>';
           select.removeAttribute("required");
           select.dataset.hasColors = "false";
+        });
+
+        // Reset inline product info displays
+        document.querySelectorAll(".product-row").forEach((row) => {
+          resetInlineProductInfo(row);
         });
 
         updateTotal();

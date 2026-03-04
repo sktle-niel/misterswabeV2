@@ -12,7 +12,7 @@ try {
     }
     
     // Query to get all products from inventory including variant_skus and information
-    $query = "SELECT id, sku, name, price, size, variant_skus, size_quantities, size_color_quantities, stock, information FROM inventory";
+    $query = "SELECT id, sku, name, price, size, variant_skus, size_quantities, size_color_quantities, stock, information, images FROM inventory";
     
     $result = $conn->query($query);
     
@@ -125,6 +125,17 @@ try {
             $information = [];
         }
         
+        // Decode images column
+        $images = json_decode($row['images'] ?? '[]', true);
+        $imageUrl = '';
+        if (!empty($images) && is_array($images)) {
+            $imageUrl = $images[0] ?? '';
+        }
+        // Add uploads/ prefix if image exists
+        if (!empty($imageUrl)) {
+            $imageUrl = '../../uploads/' . $imageUrl;
+        }
+        
         // Add base product
         $products[] = array(
             'id' => $row['id'],
@@ -134,7 +145,8 @@ try {
             'size' => $row['size'] ?: 'N/A',
             'variant_skus' => $variantMap,
             'stock' => intval($row['stock'] ?? 0),
-            'information' => $information
+            'information' => $information,
+            'image' => $imageUrl
         );
     }
     
