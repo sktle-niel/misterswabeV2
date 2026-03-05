@@ -29,7 +29,7 @@ try {
         if ($size !== 'N/A' && $quantity > 0 && !empty($color)) {
             // Fetch current size_color_quantities
             $stmt_check = $conn->prepare("SELECT size_color_quantities FROM inventory WHERE id = ?");
-            $stmt_check->bind_param("i", $product_id);
+            $stmt_check->bind_param("s", $product_id);
             $stmt_check->execute();
             $result = $stmt_check->get_result();
             if ($result->num_rows > 0) {
@@ -37,7 +37,14 @@ try {
                 $size_color_quantities = json_decode($row['size_color_quantities'] ?? '{}', true);
 
                 // Check if requested quantity is available for this size and color
-                $available_stock = $size_color_quantities[$size][$color] ?? 0;
+                // size_color_quantities stores object like {"sku": "...", "quantity": 2}
+                $colorData = $size_color_quantities[$size][$color] ?? null;
+                if (is_array($colorData) && isset($colorData['quantity'])) {
+                    $available_stock = intval($colorData['quantity']);
+                } else {
+                    $available_stock = intval($colorData ?? 0);
+                }
+                
                 if ($quantity > $available_stock) {
                     throw new Exception("Insufficient stock for size $size, color $color. Available: $available_stock, Requested: $quantity");
                 }
@@ -48,7 +55,7 @@ try {
         } elseif ($size !== 'N/A' && $quantity > 0) {
             // Fallback to size_quantities if no color specified
             $stmt_check = $conn->prepare("SELECT size_quantities FROM inventory WHERE id = ?");
-            $stmt_check->bind_param("i", $product_id);
+            $stmt_check->bind_param("s", $product_id);
             $stmt_check->execute();
             $result = $stmt_check->get_result();
             if ($result->num_rows > 0) {
@@ -99,7 +106,7 @@ try {
         if ($size !== 'N/A' && $quantity > 0) {
             // Fetch current size_quantities and size_color_quantities
             $stmt_fetch = $conn->prepare("SELECT size_quantities, size_color_quantities FROM inventory WHERE id = ?");
-            $stmt_fetch->bind_param("i", $product_id);
+            $stmt_fetch->bind_param("s", $product_id);
             $stmt_fetch->execute();
             $result = $stmt_fetch->get_result();
             if ($result->num_rows > 0) {
@@ -108,25 +115,41 @@ try {
                 $size_color_quantities = json_decode($row['size_color_quantities'] ?? '{}', true);
 
                 if (!empty($color) && isset($size_color_quantities[$size][$color])) {
-                    // Deduct from size_color_quantities
-                    $size_color_quantities[$size][$color] = max(0, $size_color_quantities[$size][$color] - $quantity);
+                    // Handle object format {"sku": "...", "quantity": 2}
+                    $colorData = $size_color_quantities[$size][$color];
+                    if (is_array($colorData) && isset($colorData['quantity'])) {
+                        $size_color_quantities[$size][$color]['quantity'] = max(0, intval($colorData['quantity']) - $quantity);
+                    } else {
+                        // Simple number format
+                        $size_color_quantities[$size][$color] = max(0, intval($colorData) - $quantity);
+                    }
                     
                     // Recalculate size_quantities from size_color_quantities
-                    $size_quantities[$size] = array_sum($size_color_quantities[$size] ?? []);
+                    $sizeTotal = 0;
+                    if (isset($size_color_quantities[$size]) && is_array($size_color_quantities[$size])) {
+                        foreach ($size_color_quantities[$size] as $cData) {
+                            if (is_array($cData) && isset($cData['quantity'])) {
+                                $sizeTotal += intval($cData['quantity']);
+                            } else {
+                                $sizeTotal += intval($cData);
+                            }
+                        }
+                    }
+                    $size_quantities[$size] = $sizeTotal;
                 } else {
                     // Fallback to size_quantities only
                     if (isset($size_quantities[$size])) {
-                        $size_quantities[$size] = max(0, $size_quantities[$size] - $quantity);
+                        $size_quantities[$size] = max(0, intval($size_quantities[$size]) - $quantity);
                     }
                 }
 
                 // Calculate total stock from size_quantities
-                $total_stock = array_sum($size_quantities);
+                $total_stock = array_sum(array_map('intval', $size_quantities));
 
                 // Update the size_quantities, size_color_quantities and stock in inventory
                 $updated_quantities = json_encode($size_quantities);
                 $updated_color_quantities = json_encode($size_color_quantities);
-                $stmt_update->bind_param("ssii", $updated_quantities, $updated_color_quantities, $total_stock, $product_id);
+                $stmt_update->bind_param("sssi", $updated_quantities, $updated_color_quantities, $total_stock, $product_id);
                 $stmt_update->execute();
             }
             $stmt_fetch->close();
