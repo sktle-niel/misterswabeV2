@@ -37,6 +37,12 @@ if ($noSizeProduct === 'true' || $noSizeProduct === true) {
         if (!$checkColumn || $checkColumn->num_rows == 0) {
             $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
         }
+        
+        // Check if variant_skus column exists
+        $checkVariantColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'variant_skus'");
+        if (!$checkVariantColumn || $checkVariantColumn->num_rows == 0) {
+            $conn->query("ALTER TABLE inventory ADD COLUMN variant_skus JSON NULL");
+        }
 
         // Fetch current product data
         $stmt = $conn->prepare("SELECT size_quantities, size_color_quantities, color FROM inventory WHERE sku = ?");
@@ -196,6 +202,12 @@ try {
     $checkColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'color'");
     if (!$checkColumn || $checkColumn->num_rows == 0) {
         $conn->query("ALTER TABLE inventory ADD COLUMN color JSON NULL");
+    }
+    
+    // Check if variant_skus column exists, if not create it
+    $checkVariantColumn = $conn->query("SHOW COLUMNS FROM inventory LIKE 'variant_skus'");
+    if (!$checkVariantColumn || $checkVariantColumn->num_rows == 0) {
+        $conn->query("ALTER TABLE inventory ADD COLUMN variant_skus JSON NULL");
     }
 
     $baseSku = $sku;

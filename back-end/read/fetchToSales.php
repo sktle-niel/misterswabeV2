@@ -144,6 +144,7 @@ try {
             'price' => floatval($row['price']),
             'size' => $row['size'] ?: 'N/A',
             'variant_skus' => $variantMap,
+            'size_color_quantities' => $sizeColorQuantities,
             'stock' => intval($row['stock'] ?? 0),
             'information' => $information,
             'image' => $imageUrl

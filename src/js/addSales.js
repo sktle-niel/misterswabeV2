@@ -64,19 +64,48 @@
     // Try to find in variant_skus of any product
     for (const p of products) {
       if (p.variant_skus) {
-        // Try exact match first
+        // First, try exact match in KEYS (the full SKU like "SHO-SAP-3JOX-39-BLACK")
         if (p.variant_skus[trimmedSku]) {
           product = p;
           variantInfo = p.variant_skus[trimmedSku];
           break;
         }
         
-        // Try case-insensitive match
+        // Try case-insensitive match in keys
         const variantKeys = Object.keys(p.variant_skus);
         for (const key of variantKeys) {
           if (key.toLowerCase() === trimmedSku.toLowerCase()) {
             product = p;
             variantInfo = p.variant_skus[key];
+            break;
+          }
+        }
+        if (product) break;
+        
+        // Also search in VALUES (some products may have the SKU in values)
+        // When found in values, extract size/color from the KEY (e.g., "39-black" -> size: 39, color: black)
+        const variantValues = Object.values(p.variant_skus);
+        for (let i = 0; i < variantValues.length; i++) {
+          const val = variantValues[i];
+          if (typeof val === 'string' && val.toLowerCase() === trimmedSku.toLowerCase()) {
+            product = p;
+            // Extract size and color from the key (e.g., "39-black" or "41-red")
+            const key = variantKeys[i];
+            const keyParts = key.split('-');
+            const size = keyParts[0];
+            const color = keyParts.slice(1).join('-'); // Join rest in case color has hyphen (e.g., "light-blue")
+            
+            // Get the quantity from size_color_quantities
+            let quantity = 0;
+            if (product.size_color_quantities && product.size_color_quantities[size]) {
+              quantity = product.size_color_quantities[size][color]?.quantity || 0;
+            }
+            
+            variantInfo = {
+              size: size,
+              color: color,
+              quantity: quantity
+            };
             break;
           }
         }
@@ -115,12 +144,21 @@
         sizeSelect.innerHTML = `<option value="${variantInfo.size}">${variantInfo.size}</option>`;
         colorSelect.innerHTML = `<option value="${variantInfo.color}">${variantInfo.color}</option>`;
         
-        // Set quantity max to available stock
+        // Also set the value property explicitly for form submission
+        sizeSelect.value = variantInfo.size;
+        colorSelect.value = variantInfo.color;
+        
+        // Set quantity max to available stock (only if stock > 0 to avoid HTML5 validation issues)
         const qtyInput = row.querySelector('input[name*="[quantity]"]');
-        qtyInput.max = variantInfo.quantity;
+        if (variantInfo.quantity > 0) {
+          qtyInput.max = variantInfo.quantity;
+        } else {
+          // Remove max attribute when out of stock to prevent HTML5 default message
+          qtyInput.removeAttribute('max');
+        }
         
         // If quantity entered exceeds available, cap it
-        if (parseInt(qtyInput.value) > variantInfo.quantity) {
+        if (parseInt(qtyInput.value) > variantInfo.quantity && variantInfo.quantity > 0) {
           qtyInput.value = variantInfo.quantity;
         }
         
@@ -277,6 +315,14 @@
     if (rowTotal) {
       rowTotal.textContent = "₱" + (price * quantity).toFixed(2);
     }
+  }
+
+  // Helper function to check if sizeColorData has any sizes with stock
+  function hasSizeVariantProducts(sizeColorData) {
+    if (!sizeColorData || !Array.isArray(sizeColorData)) {
+      return false;
+    }
+    return sizeColorData.some(s => s.stock > 0);
   }
 
   // Open barcode scanner
@@ -496,6 +542,33 @@
         </button>
     `;
     container.appendChild(row);
+    
+    // Add invalid event listener for custom error message on quantity input
+    const qtyInput = row.querySelector('input[name*="[quantity]"]');
+    if (qtyInput) {
+      qtyInput.addEventListener('invalid', function(e) {
+        // Get the max value if set
+        const maxVal = this.max ? parseInt(this.max) : null;
+        const value = parseInt(this.value);
+        
+        if (maxVal !== null && value > maxVal) {
+          // Custom message for exceeding max stock
+          e.preventDefault();
+          this.setCustomValidity('');
+          this.setCustomValidity('Insufficient stock. Available: ' + maxVal + ', Requested: ' + value);
+        } else if (value < 1) {
+          // Custom message for value less than 1
+          e.preventDefault();
+          this.setCustomValidity('');
+          this.setCustomValidity('Quantity must be at least 1');
+        }
+      });
+      
+      // Clear custom validity on input
+      qtyInput.addEventListener('input', function() {
+        this.setCustomValidity('');
+      });
+    }
   }
 
   // Remove product row
@@ -508,10 +581,10 @@
     }
   }
 
-  // Event listeners
-  document.addEventListener("DOMContentLoaded", function () {
-    // Load products on page load
-    loadProducts();
+// Event listeners
+  document.addEventListener("DOMContentLoaded", async function () {
+    // Load products on page load - wait for it to complete
+    await loadProducts();
 
     // Add first product row on page load
     addProductRow();
@@ -612,9 +685,14 @@
             if (sizeInfo && sizeInfo.color_variants) {
               const colorVariant = sizeInfo.color_variants.find(c => c.sku === selectedOption.value);
               if (colorVariant) {
-                // Set the quantity input max to available stock
+                // Set the quantity input max to available stock (only if stock > 0)
                 const qtyInput = row.querySelector('input[name*="[quantity]"]');
-                qtyInput.max = colorVariant.quantity;
+                if (colorVariant.quantity > 0) {
+                  qtyInput.max = colorVariant.quantity;
+                } else {
+                  // Remove max attribute when out of stock
+                  qtyInput.removeAttribute('max');
+                }
               }
             }
           }
@@ -644,7 +722,7 @@
       .addEventListener("submit", async function (e) {
         e.preventDefault();
 
-        // Validate that all products have valid IDs
+        // Validate that all products have valid IDs and stock availability
         const rows = document.querySelectorAll(".product-row");
         let isValid = true;
         let errorMessage = "";
@@ -652,7 +730,9 @@
         rows.forEach((row, index) => {
           const productId = row.querySelector(".product-id").value;
           const skuInput = row.querySelector(".product-sku");
+          const qtyInput = row.querySelector('input[name*="[quantity]"]');
           const sku = skuInput.value.trim();
+          const quantity = parseInt(qtyInput.value) || 0;
 
           // Check if product is valid
           if (!productId) {
@@ -662,25 +742,98 @@
             return;
           }
 
+          // Check stock availability
+          let availableStock = 0;
+          
+          // If variant info exists, get stock from it
+          if (row.variantInfo && row.variantInfo.quantity !== undefined) {
+            availableStock = parseInt(row.variantInfo.quantity) || 0;
+          } else if (row.sizeColorData && row.sizeColorData.length > 0) {
+            // Check selected size/color combination
+            const sizeSelect = row.querySelector(".product-size");
+            const colorSelect = row.querySelector(".product-color");
+            const selectedSize = sizeSelect.value;
+            const selectedColorOption = colorSelect.options[colorSelect.selectedIndex];
+            
+            if (selectedSize && selectedSize !== 'N/A' && selectedColorOption && selectedColorOption.value) {
+              // Find the color variant to get available quantity
+              const sizeInfo = row.sizeColorData.find(s => s.size === selectedSize);
+              if (sizeInfo && sizeInfo.color_variants) {
+                const colorVariant = sizeInfo.color_variants.find(c => c.sku === selectedColorOption.value);
+                if (colorVariant) {
+                  availableStock = parseInt(colorVariant.quantity) || 0;
+                }
+              }
+            } else {
+              // No specific size/color selected, use product stock
+              const product = products.find(p => p.id === productId);
+              availableStock = parseInt(product?.stock) || 0;
+            }
+          } else {
+            // Simple product - get stock from products array
+            const product = products.find(p => p.id === productId);
+            availableStock = parseInt(product?.stock) || 0;
+          }
+          
+          // Check if out of stock
+          if (availableStock === 0) {
+            isValid = false;
+            errorMessage = "This product is out of stock";
+            skuInput.style.borderColor = "red";
+            return;
+          }
+          
+          // Check if quantity exceeds available stock
+          if (quantity > availableStock) {
+            isValid = false;
+            errorMessage = "Invalid, quantity must not be higher than stock (Available: " + availableStock + ")";
+            skuInput.style.borderColor = "red";
+            
+            // Show custom error message using alert for immediate feedback
+            alert(errorMessage);
+            return;
+          }
+
           // Use extracted size/color from variant SKU if available
           const sizeSelect = row.querySelector(".product-size");
           const colorSelect = row.querySelector(".product-color");
           
           // If we have extracted variant info, use it; otherwise use dropdown values
-          const size = row.extractedSize || sizeSelect.value;
-          const color = row.extractedColor || colorSelect.value;
+          // Only check for size if we don't have extracted size from a variant SKU
+          const hasExtractedSize = row.extractedSize && row.extractedSize !== '' && row.extractedSize !== 'N/A';
+          const hasExtractedColor = row.extractedColor && row.extractedColor !== '' && row.extractedColor !== 'N/A';
           
-          // Check if size is required and not available
-          if (row.variantInfo || (row.sizeColorData && row.sizeColorData.length > 0)) {
-            // Product has variants - size/color should be set
+          // If variant info exists and we've extracted size OR color, validation passes
+          // This handles both size+color variants and color-only variants
+          if (row.variantInfo && (hasExtractedSize || hasExtractedColor)) {
+            // This is a valid variant SKU - size and/or color are auto-selected
+            // No validation needed
+          } else if (row.sizeColorData && row.sizeColorData.length > 0 && hasSizeVariantProducts(row.sizeColorData)) {
+            // Product has sizes with stock from getSizes.php - need to select manually
+            const size = sizeSelect.value;
             if (!size || size === '' || size === 'N/A') {
-              // Log for debugging - size info required for products with variants
+              isValid = false;
+              errorMessage = "Please select a size";
+              skuInput.style.borderColor = "red";
             }
           }
+          // If no variantInfo and no valid sizes, it's a simple product
+          // No additional validation needed - allow the sale
         });
 
         if (!isValid) {
-          showInvalidMessage();
+          // Show custom error message
+          const invalidMessage = document.getElementById("invalidMessage");
+          if (invalidMessage) {
+            const invalidText = invalidMessage.querySelector(".invalid-text");
+            if (invalidText) {
+              invalidText.textContent = errorMessage || "Invalid, please select size!";
+            }
+            invalidMessage.style.display = "block";
+            setTimeout(() => {
+              invalidMessage.style.display = "none";
+            }, 3000);
+          }
           return;
         }
 
