@@ -170,18 +170,18 @@
         fetch(`../../back-end/read/getSizes.php?sku=${encodeURIComponent(trimmedSku)}`)
           .then((response) => response.json())
           .then((data) => {
-            row.sizeColorData = data.sizes || [];
-            
-            // Check if product has sizes with stock
-            const hasSizesWithStock = data.sizes && data.sizes.some(s => s.stock > 0);
-            
-            if (!hasSizesWithStock) {
-              // Simple product - no sizes, just use base SKU
-              sizeSelect.innerHTML = '<option value="N/A">N/A</option>';
-              colorSelect.innerHTML = '<option value="N/A">N/A</option>';
-              row.extractedSize = 'N/A';
-              row.extractedColor = 'N/A';
-            }
+              const sizes = data.sizes || [];
+              const hasSizesWithStock = sizes.some(s => s.stock > 0 && !s.isSimpleProduct);
+
+              if (!hasSizesWithStock) {
+                row.sizeColorData = [];
+                sizeSelect.innerHTML = '<option value="N/A">N/A</option>';
+                colorSelect.innerHTML = '<option value="N/A">N/A</option>';
+                row.extractedSize = 'N/A';
+                row.extractedColor = 'N/A';
+              } else {
+                row.sizeColorData = sizes;
+              }
           })
           .catch((error) => {
             console.error("Error fetching sizes:", error);
@@ -319,10 +319,11 @@
 
   // Helper function to check if sizeColorData has any sizes with stock
   function hasSizeVariantProducts(sizeColorData) {
-    if (!sizeColorData || !Array.isArray(sizeColorData)) {
-      return false;
-    }
-    return sizeColorData.some(s => s.stock > 0);
+      if (!sizeColorData || !Array.isArray(sizeColorData)) {
+        return false;
+      }
+      // Exclude simple products (no size) — they shouldn't require size selection
+      return sizeColorData.some(s => s.stock > 0 && !s.isSimpleProduct);
   }
 
   // Open barcode scanner
@@ -734,7 +735,6 @@
           const sku = skuInput.value.trim();
           const quantity = parseInt(qtyInput.value) || 0;
 
-          // Check if product is valid
           if (!productId) {
             isValid = false;
             errorMessage = "Please ensure all products are valid";
@@ -745,8 +745,34 @@
           // Check stock availability
           let availableStock = 0;
           
-          // If variant info exists, get stock from it
-          if (row.variantInfo && row.variantInfo.quantity !== undefined) {
+          // First get product from products array
+          const product = products.find(p => p.id === productId);
+          const productSize = product?.size || '';
+          const productVariantSkus = product?.variant_skus || {};
+          const hasVariantSkus = productVariantSkus && Object.keys(productVariantSkus).length > 0;
+          const hasSizeColorQuantities = product?.size_color_quantities && Object.keys(product.size_color_quantities).length > 0;
+          
+          // Determine if this is a simple product (no size dimension at all)
+          // A simple product has: no size, no variant_skus, or no size_color_quantities with actual size keys
+          // Check if product has any sizes defined (not empty string key in size_color_quantities)
+          let hasActualSizes = false;
+          if (product?.size_color_quantities) {
+            for (const key of Object.keys(product.size_color_quantities)) {
+              if (key !== '') {
+                hasActualSizes = true;
+                break;
+              }
+            }
+          }
+          
+          // Simple product: no size dimension OR has colors only (empty string key)
+          const isSimpleProduct = !productSize || productSize === 'N/A' || productSize === '' || productSize === 'Simple Product' || (!hasActualSizes && !hasVariantSkus);
+          
+          // For simple products, use the stock column directly from inventory
+          if (isSimpleProduct) {
+            availableStock = parseInt(product?.stock) || 0;
+          } else if (row.variantInfo && row.variantInfo.quantity !== undefined) {
+            // Variant SKU with extracted size/color - use variantInfo quantity
             availableStock = parseInt(row.variantInfo.quantity) || 0;
           } else if (row.sizeColorData && row.sizeColorData.length > 0) {
             // Check selected size/color combination
@@ -766,12 +792,10 @@
               }
             } else {
               // No specific size/color selected, use product stock
-              const product = products.find(p => p.id === productId);
               availableStock = parseInt(product?.stock) || 0;
             }
           } else {
-            // Simple product - get stock from products array
-            const product = products.find(p => p.id === productId);
+            // Fallback - use product stock
             availableStock = parseInt(product?.stock) || 0;
           }
           
@@ -788,28 +812,19 @@
             isValid = false;
             errorMessage = "Invalid, quantity must not be higher than stock (Available: " + availableStock + ")";
             skuInput.style.borderColor = "red";
-            
-            // Show custom error message using alert for immediate feedback
             alert(errorMessage);
             return;
           }
 
-          // Use extracted size/color from variant SKU if available
-          const sizeSelect = row.querySelector(".product-size");
-          const colorSelect = row.querySelector(".product-color");
-          
-          // If we have extracted variant info, use it; otherwise use dropdown values
-          // Only check for size if we don't have extracted size from a variant SKU
-          const hasExtractedSize = row.extractedSize && row.extractedSize !== '' && row.extractedSize !== 'N/A';
-          const hasExtractedColor = row.extractedColor && row.extractedColor !== '' && row.extractedColor !== 'N/A';
-          
-          // If variant info exists and we've extracted size OR color, validation passes
-          // This handles both size+color variants and color-only variants
-          if (row.variantInfo && (hasExtractedSize || hasExtractedColor)) {
-            // This is a valid variant SKU - size and/or color are auto-selected
-            // No validation needed
-          } else if (row.sizeColorData && row.sizeColorData.length > 0 && hasSizeVariantProducts(row.sizeColorData)) {
+// For simple products, skip size validation
+          if (isSimpleProduct) {
+            // Simple product - no size/color selection needed, already validated stock above
+          } else if ((!row.sizeColorData || row.sizeColorData.length === 0)) {
+            // No size data available - treat as simple product
+            // Skip size validation
+          } else if (hasSizeVariantProducts(row.sizeColorData)) {
             // Product has sizes with stock from getSizes.php - need to select manually
+            const sizeSelect = row.querySelector(".product-size");
             const size = sizeSelect.value;
             if (!size || size === '' || size === 'N/A') {
               isValid = false;
@@ -817,8 +832,6 @@
               skuInput.style.borderColor = "red";
             }
           }
-          // If no variantInfo and no valid sizes, it's a simple product
-          // No additional validation needed - allow the sale
         });
 
         if (!isValid) {
